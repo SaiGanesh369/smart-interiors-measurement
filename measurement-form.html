@@ -844,22 +844,39 @@ function copySummary() {
 }
 
 // ── SEND TO SHEETS ──
-// Uses Image pixel trick — most reliable method across all mobile/desktop browsers
-// Apps Script receives GET request with data param and saves to sheet
+// JSONP via script tag injection — works on ALL browsers mobile + desktop
+// No CORS, no fetch, no iframe — script tags are never blocked
 function sendToSheets(url, rows) {
   return new Promise((resolve) => {
     try {
+      const cbName = 'si_cb_' + Date.now();
       const payload = encodeURIComponent(JSON.stringify({rows: rows}));
-      const fullUrl = url + '?data=' + payload;
-      
-      // Image pixel method — bypasses CORS completely on all devices
-      const img = new Image();
-      img.onload = () => resolve();
-      img.onerror = () => resolve(); // resolve even on error — data still sent
-      img.src = fullUrl;
-      
+      const fullUrl = url + '?data=' + payload + '&callback=' + cbName;
+
+      // Cleanup function
+      const cleanup = () => {
+        try {
+          delete window[cbName];
+          const el = document.getElementById(cbName);
+          if (el) el.remove();
+        } catch(e) {}
+        resolve();
+      };
+
+      // JSONP callback
+      window[cbName] = cleanup;
+
+      // Inject script tag
+      const script = document.createElement('script');
+      script.id = cbName;
+      script.src = fullUrl;
+      script.onload = cleanup;
+      script.onerror = cleanup;
+      document.head.appendChild(script);
+
       // Timeout fallback
-      setTimeout(resolve, 8000);
+      setTimeout(cleanup, 10000);
+
     } catch(err) {
       console.error('sendToSheets error:', err);
       resolve();
