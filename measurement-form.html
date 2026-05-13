@@ -273,46 +273,80 @@ const DRIVE_FOLDER_ID = '1JrM2s4dJ8oWK4SuJuiaV_H4gzCbnLtuJ';
   }
   #data-panel { display:none; margin-top:14px; }
 
-  /* Entry cards */
+  /* Entry cards — tappable */
   .entry-card {
     background:white; border-radius:12px; padding:13px;
     margin-bottom:10px; border:1.5px solid var(--border); font-size:0.83rem;
+    cursor:pointer; transition:box-shadow 0.15s, border-color 0.15s;
+    -webkit-tap-highlight-color: transparent;
   }
-  .ec-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
+  .entry-card:active { box-shadow:0 2px 12px rgba(255,107,0,0.18); border-color:#FFD4B0; }
+  .ec-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; }
   .ec-worker { font-weight:700; color:var(--orange); font-family:'Baloo 2',cursive; }
   .ec-date { font-size:0.7rem; color:var(--muted); }
-  .ec-meta { color:var(--muted); font-size:0.76rem; margin-bottom:8px; line-height:1.7; }
-  .ec-map-link { color:var(--blue); font-size:0.75rem; text-decoration:none; }
-  .ec-product-group { margin-bottom:8px; }
-  .ec-product-name { font-weight:700; font-size:0.78rem; margin-bottom:4px; text-transform:uppercase; }
-  .ec-chips { display:flex; flex-wrap:wrap; gap:5px; }
-  .meas-chip {
-    background:#FFF0E6; border:1px solid #FFD4B0; color:var(--text);
-    border-radius:6px; padding:4px 9px; font-size:0.8rem; font-weight:600; font-family:monospace;
-  }
-  .dir-chip {
-    background:#EFF6FF; border:1px solid #BFDBFE; color:var(--blue);
-    border-radius:6px; padding:3px 8px; font-size:0.75rem; font-weight:700;
-  }
-  .ec-notes { margin-top:7px; font-size:0.75rem; color:var(--muted); border-top:1px solid var(--border); padding-top:6px; }
-  .ec-actions { display:flex; gap:6px; margin-top:10px; border-top:1px solid var(--border); padding-top:10px; }
-  .ec-btn {
-    flex:1; padding:8px 6px; border-radius:8px; border:none;
-    font-family:'Baloo 2',cursive; font-size:0.78rem; font-weight:700;
-    cursor:pointer; display:flex; align-items:center; justify-content:center; gap:4px;
-  }
-  .ec-btn-wa { background:#E7F8EE; color:#15803D; }
-  .ec-btn-photo { background:#EFF6FF; color:var(--blue); }
-  .ec-photos-panel { display:none; margin-top:8px; }
-  .ec-photo-link {
-    display:inline-flex; align-items:center; gap:5px;
-    background:#F0F7FF; border:1px solid #BFDBFE; color:var(--blue);
-    border-radius:7px; padding:6px 10px; font-size:0.75rem; text-decoration:none;
-    margin:3px;
-  }
+  .ec-meta { color:var(--muted); font-size:0.76rem; line-height:1.7; }
+  .ec-tap-hint { font-size:0.68rem; color:#BBBBD0; margin-top:5px; text-align:right; }
 
   .no-entries { text-align:center; color:var(--muted); padding:20px; font-size:0.83rem; }
   .loading-entries { text-align:center; color:var(--muted); padding:20px; font-size:0.83rem; }
+
+  /* ── ENTRY DETAIL MODAL ── */
+  .modal-overlay {
+    display:none; position:fixed; inset:0; z-index:9998;
+    background:rgba(26,26,46,0.65); backdrop-filter:blur(3px);
+    align-items:flex-end; justify-content:center;
+  }
+  .modal-overlay.active { display:flex; }
+  .modal-sheet {
+    background:white; border-radius:20px 20px 0 0;
+    width:100%; max-width:480px; max-height:88vh;
+    overflow-y:auto; padding:0 0 32px;
+    animation:slideUp 0.25s ease;
+  }
+  @keyframes slideUp { from{transform:translateY(100%)} to{transform:translateY(0)} }
+  .modal-handle {
+    width:40px; height:4px; background:var(--border);
+    border-radius:2px; margin:12px auto 0;
+  }
+  .modal-header {
+    display:flex; justify-content:space-between; align-items:center;
+    padding:14px 18px 10px;
+    border-bottom:1.5px solid var(--border);
+    position:sticky; top:0; background:white; z-index:1;
+  }
+  .modal-title { font-family:'Baloo 2',cursive; font-weight:800; font-size:1rem; color:var(--orange); }
+  .modal-close {
+    background:var(--bg); border:none; border-radius:50%;
+    width:30px; height:30px; font-size:1rem; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .modal-body { padding:14px 18px; }
+  .modal-summary {
+    background:var(--bg); border-radius:10px; padding:12px;
+    font-size:0.82rem; line-height:1.8; white-space:pre-wrap;
+    color:var(--text); border:1.5px solid var(--border);
+    max-height:300px; overflow-y:auto; word-break:break-word;
+    margin-bottom:14px;
+  }
+  .modal-photos { margin-bottom:14px; }
+  .modal-photos-title {
+    font-family:'Baloo 2',cursive; font-weight:700; font-size:0.82rem;
+    color:var(--blue); margin-bottom:8px;
+  }
+  .modal-photo-link {
+    display:flex; align-items:center; gap:8px;
+    background:#EFF6FF; border:1px solid #BFDBFE; color:var(--blue);
+    border-radius:9px; padding:10px 13px; font-size:0.82rem;
+    text-decoration:none; margin-bottom:6px; font-weight:600;
+  }
+  .modal-actions { display:flex; gap:8px; }
+  .modal-btn {
+    flex:1; padding:12px 8px; border-radius:10px; border:none;
+    font-family:'Baloo 2',cursive; font-size:0.88rem; font-weight:800;
+    cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px;
+  }
+  .modal-btn-copy { background:#F0F0F0; color:var(--text); }
+  .modal-btn-close { background:var(--orange); color:white; }
 
   .required-star { color:var(--red); margin-left:2px; }
   .error-msg { color:var(--red); font-size:0.75rem; margin-top:4px; display:none; }
@@ -367,6 +401,28 @@ const DRIVE_FOLDER_ID = '1JrM2s4dJ8oWK4SuJuiaV_H4gzCbnLtuJ';
   <h1>📐 Smart Interiors</h1>
   <p>Site Measurement Entry</p>
 </header>
+
+<!-- ENTRY DETAIL MODAL -->
+<div class="modal-overlay" id="entry-modal" onclick="closeEntryModal(event)">
+  <div class="modal-sheet" id="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <span class="modal-title" id="modal-title">Entry Detail</span>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-summary" id="modal-summary"></div>
+      <div class="modal-photos" id="modal-photos" style="display:none">
+        <div class="modal-photos-title">📷 Photos</div>
+        <div id="modal-photo-links"></div>
+      </div>
+      <div class="modal-actions">
+        <button class="modal-btn modal-btn-copy" onclick="copyModalSummary()">📋 Copy</button>
+        <button class="modal-btn modal-btn-close" onclick="closeModal()">✕ Close</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- SAVING OVERLAY -->
 <div class="saving-overlay" id="saving-overlay">
