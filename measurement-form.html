@@ -7,8 +7,9 @@
 <script>
 // ════════════════════════════════════════
 // CONFIG — UPDATE THESE TWO LINES ONLY
-const SHEETS_URL   = 'https://script.google.com/macros/s/AKfycbwCTGOwV9FE6f-YcpJ0WS6vvMC82bOZx9-0yYI5pMe1uU7mAdUXy2tmQYskaWoyfet2qA/exec';
+const SHEETS_URL   = 'https://script.google.com/macros/s/AKfycby5338zmo3YatyvVVjs-Ozd4Sr8BvChpm7Xklc_mWjHzpVUMbVUUjdF69Z6hqCeQWyArA/exec';
 const WHATSAPP_URL = 'https://chat.whatsapp.com/KPQXS3b220vENMV9MCZQro';
+const DRIVE_FOLDER_ID = '1JrM2s4dJ8oWK4SuJuiaV_H4gzCbnLtuJ';
 // ════════════════════════════════════════
 </script>
 <style>
@@ -123,6 +124,12 @@ const WHATSAPP_URL = 'https://chat.whatsapp.com/KPQXS3b220vENMV9MCZQro';
     border-radius:50%; width:18px; height:18px;
     font-size:0.65rem; cursor:pointer; line-height:18px; text-align:center;
   }
+  .photo-upload-status {
+    font-size:0.72rem; margin-top:6px; color:var(--muted);
+    line-height:1.5; text-align:center;
+  }
+  .photo-upload-status.ok  { color:var(--green); }
+  .photo-upload-status.err { color:var(--red); }
 
   /* Items */
   .items-list { display:flex; flex-direction:column; gap:12px; margin-top:4px; }
@@ -161,12 +168,26 @@ const WHATSAPP_URL = 'https://chat.whatsapp.com/KPQXS3b220vENMV9MCZQro';
     background:#FFFBF7; border-color:#FFD4B0;
   }
   .meas-grid-2 input:focus, .meas-grid-3 input:focus { background:white; border-color:var(--orange); }
+
+  /* Middle field optional styling */
+  .meas-middle-optional {
+    background:#F8F8F8 !important;
+    border-color:#DDD !important;
+    color:var(--muted) !important;
+  }
+  .meas-middle-optional:focus {
+    background:white !important;
+    border-color:var(--orange) !important;
+    color:var(--text) !important;
+  }
+
   .meas-sep { text-align:center; font-size:1rem; font-weight:800; color:var(--muted); }
   .meas-labels { display:grid; gap:4px; margin-top:3px; }
   .meas-labels-2 { grid-template-columns:1fr 20px 1fr; }
   .meas-labels-3 { grid-template-columns:1fr 14px 1fr 14px 1fr; }
   .fl { font-size:0.65rem; color:var(--orange); font-weight:700; text-transform:uppercase; text-align:center; letter-spacing:0.3px; }
   .fl-x { visibility:hidden; }
+  .fl-optional { color:var(--muted) !important; }
   .btn-del-meas { background:none; border:none; color:#CCC; font-size:1.1rem; cursor:pointer; padding:4px; margin-top:8px; }
   .btn-del-meas:active { color:var(--red); }
   .btn-add-meas {
@@ -252,6 +273,7 @@ const WHATSAPP_URL = 'https://chat.whatsapp.com/KPQXS3b220vENMV9MCZQro';
   }
   #data-panel { display:none; margin-top:14px; }
 
+  /* Entry cards */
   .entry-card {
     background:white; border-radius:12px; padding:13px;
     margin-bottom:10px; border:1.5px solid var(--border); font-size:0.83rem;
@@ -273,7 +295,24 @@ const WHATSAPP_URL = 'https://chat.whatsapp.com/KPQXS3b220vENMV9MCZQro';
     border-radius:6px; padding:3px 8px; font-size:0.75rem; font-weight:700;
   }
   .ec-notes { margin-top:7px; font-size:0.75rem; color:var(--muted); border-top:1px solid var(--border); padding-top:6px; }
+  .ec-actions { display:flex; gap:6px; margin-top:10px; border-top:1px solid var(--border); padding-top:10px; }
+  .ec-btn {
+    flex:1; padding:8px 6px; border-radius:8px; border:none;
+    font-family:'Baloo 2',cursive; font-size:0.78rem; font-weight:700;
+    cursor:pointer; display:flex; align-items:center; justify-content:center; gap:4px;
+  }
+  .ec-btn-wa { background:#E7F8EE; color:#15803D; }
+  .ec-btn-photo { background:#EFF6FF; color:var(--blue); }
+  .ec-photos-panel { display:none; margin-top:8px; }
+  .ec-photo-link {
+    display:inline-flex; align-items:center; gap:5px;
+    background:#F0F7FF; border:1px solid #BFDBFE; color:var(--blue);
+    border-radius:7px; padding:6px 10px; font-size:0.75rem; text-decoration:none;
+    margin:3px;
+  }
+
   .no-entries { text-align:center; color:var(--muted); padding:20px; font-size:0.83rem; }
+  .loading-entries { text-align:center; color:var(--muted); padding:20px; font-size:0.83rem; }
 
   .required-star { color:var(--red); margin-left:2px; }
   .error-msg { color:var(--red); font-size:0.75rem; margin-top:4px; display:none; }
@@ -284,6 +323,42 @@ const WHATSAPP_URL = 'https://chat.whatsapp.com/KPQXS3b220vENMV9MCZQro';
     padding:10px 13px; font-size:0.75rem; color:#92400E; line-height:1.6; margin-top:8px;
   }
   .info-box strong { display:block; margin-bottom:2px; color:#C2410C; }
+
+  /* ── SAVING OVERLAY ── */
+  .saving-overlay {
+    display:none; position:fixed; inset:0; z-index:9999;
+    background:rgba(26,26,46,0.72); backdrop-filter:blur(3px);
+    flex-direction:column; align-items:center; justify-content:center; gap:20px;
+  }
+  .saving-overlay.active { display:flex; }
+  .saving-card {
+    background:white; border-radius:20px; padding:28px 32px;
+    text-align:center; max-width:300px; width:88%;
+    box-shadow:0 12px 40px rgba(0,0,0,0.2);
+  }
+  .saving-spinner {
+    width:48px; height:48px; border:4px solid #FFE0C8;
+    border-top-color:var(--orange); border-radius:50%;
+    animation:spin 0.8s linear infinite; margin:0 auto 14px;
+  }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .saving-title {
+    font-family:'Baloo 2',cursive; font-size:1.1rem; font-weight:800;
+    color:var(--text); margin-bottom:6px;
+  }
+  .saving-step {
+    font-size:0.78rem; color:var(--muted); line-height:1.6;
+    min-height:1.6em; transition:opacity 0.3s;
+  }
+  .saving-steps-track {
+    display:flex; justify-content:center; gap:6px; margin-top:14px;
+  }
+  .saving-dot {
+    width:8px; height:8px; border-radius:50%;
+    background:var(--border); transition:background 0.3s;
+  }
+  .saving-dot.done { background:var(--green); }
+  .saving-dot.active { background:var(--orange); }
 </style>
 </head>
 <body>
@@ -292,6 +367,20 @@ const WHATSAPP_URL = 'https://chat.whatsapp.com/KPQXS3b220vENMV9MCZQro';
   <h1>📐 Smart Interiors</h1>
   <p>Site Measurement Entry</p>
 </header>
+
+<!-- SAVING OVERLAY -->
+<div class="saving-overlay" id="saving-overlay">
+  <div class="saving-card">
+    <div class="saving-spinner"></div>
+    <div class="saving-title">Saving Entry...</div>
+    <div class="saving-step" id="saving-step-text">Preparing data</div>
+    <div class="saving-steps-track">
+      <div class="saving-dot active" id="sdot-0"></div>
+      <div class="saving-dot" id="sdot-1"></div>
+      <div class="saving-dot" id="sdot-2"></div>
+    </div>
+  </div>
+</div>
 
 <div class="container">
   <div id="form-section">
@@ -373,10 +462,12 @@ const WHATSAPP_URL = 'https://chat.whatsapp.com/KPQXS3b220vENMV9MCZQro';
         <span class="photo-upload-icon">📸</span>
         <div class="photo-upload-text">
           <strong>Tap to add photos</strong>
-          Site photos, sketches, reference images
+          Site photos, sketches, reference images<br>
+          <span style="font-size:0.7rem;color:var(--blue);">📤 Will upload to Google Drive on save</span>
         </div>
       </div>
       <div class="photo-previews" id="photo-previews"></div>
+      <div class="photo-upload-status" id="photo-upload-status"></div>
     </div>
 
     <div class="card">
@@ -385,8 +476,6 @@ const WHATSAPP_URL = 'https://chat.whatsapp.com/KPQXS3b220vENMV9MCZQro';
     </div>
 
     <button class="btn-submit" onclick="submitForm()">✅ Save & Sync to Sheets</button>
-    <button onclick="testSync()" style="width:100%;padding:12px;margin-top:8px;background:#3B82F6;color:white;border:none;border-radius:12px;font-size:0.9rem;font-weight:700;cursor:pointer;">🧪 Test Sheets Sync</button>
-    <div id="test-result" style="margin-top:8px;padding:10px;border-radius:8px;font-size:0.8rem;display:none;"></div>
 
     <div class="data-toggle">
       <button onclick="toggleData()">📋 View Saved Entries</button>
@@ -425,6 +514,7 @@ let lastFocused = null;
 let capturedLat = null;
 let capturedLng = null;
 let photoDataURLs = []; // stores base64 photos
+let photoFileNames = []; // stores filenames
 
 const PRODUCTS = [
   '-- Select Product --',
@@ -489,12 +579,13 @@ function handlePhotos(event) {
   files.forEach(file => {
     const reader = new FileReader();
     reader.onload = e => {
+      const idx = photoDataURLs.length;
       photoDataURLs.push(e.target.result);
-      renderPhotoPreview(e.target.result, photoDataURLs.length - 1);
+      photoFileNames.push(file.name);
+      renderPhotoPreview(e.target.result, idx);
     };
     reader.readAsDataURL(file);
   });
-  // reset input so same file can be re-selected
   event.target.value = '';
 }
 
@@ -512,12 +603,70 @@ function renderPhotoPreview(dataURL, index) {
 
 function removePhoto(index) {
   photoDataURLs[index] = null;
+  photoFileNames[index] = null;
   document.getElementById('photo-wrap-' + index)?.remove();
 }
 
-// ── AUTO-SLASH ──
-function attachAutoSlash(input) {
+// ── UPLOAD PHOTOS TO DRIVE VIA APPS SCRIPT ──
+// Photos are sent as base64 to the Apps Script which saves them to Drive
+// and returns the shareable view links
+async function uploadPhotosToDrive(entryId) {
+  const validPhotos = photoDataURLs
+    .map((d, i) => d ? { data: d, name: photoFileNames[i] || `photo_${i+1}.jpg` } : null)
+    .filter(Boolean);
+
+  if (!validPhotos.length) return [];
+
+  const statusEl = document.getElementById('photo-upload-status');
+  statusEl.textContent = `📤 Uploading ${validPhotos.length} photo(s) to Drive...`;
+  statusEl.className = 'photo-upload-status';
+
+  try {
+    const response = await fetch('/.netlify/functions/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'uploadPhotos',
+        entryId: entryId,
+        folderId: DRIVE_FOLDER_ID,
+        photos: validPhotos
+      })
+    });
+    const result = await response.json();
+    if (result.links && result.links.length) {
+      statusEl.textContent = `✓ ${result.links.length} photo(s) uploaded to Drive`;
+      statusEl.className = 'photo-upload-status ok';
+      return result.links;
+    }
+    statusEl.textContent = '⚠️ Photos saved locally only (Drive upload failed)';
+    statusEl.className = 'photo-upload-status err';
+    return [];
+  } catch(e) {
+    console.error('Photo upload error:', e);
+    statusEl.textContent = '⚠️ Photos saved locally only (Drive upload failed)';
+    statusEl.className = 'photo-upload-status err';
+    return [];
+  }
+}
+
+// ── MEASUREMENT INPUT — ALLOW DIGITS, SPACE, SLASH ONLY ──
+// Reason: prevents letters being typed; still allows "47 1/4" fraction format
+function attachMeasInputRules(input) {
+  input.addEventListener('keypress', function(e) {
+    const allowed = /[\d\s\/]/;
+    if (!allowed.test(e.key) && !['Backspace','Delete','ArrowLeft','ArrowRight','Tab'].includes(e.key)) {
+      e.preventDefault();
+    }
+  });
+  // Also strip any non-allowed chars on paste
   input.addEventListener('input', function() {
+    const cleaned = this.value.replace(/[^\d\s\/]/g, '');
+    if (cleaned !== this.value) {
+      const pos = this.selectionStart;
+      this.value = cleaned;
+      this.selectionStart = this.selectionEnd = pos;
+    }
+    // Auto-slash logic
     const val = this.value;
     const match = val.match(/^(.*?)(\d+) (\d+) $/);
     if (match) {
@@ -539,6 +688,7 @@ function attachAutoSlash(input) {
       this.selectionStart = this.selectionEnd = newVal.length;
     }
   });
+  input.addEventListener('focus', () => { lastFocused = input; });
 }
 
 // ── ADD ITEM ──
@@ -601,9 +751,7 @@ function onProdChange(id) {
     return;
   }
 
-  // Show direction only for PVC Door
   dirRow.style.display = prod === 'PVC Door' ? 'block' : 'none';
-  // Show louver type only for Louver
   louverRow.style.display = prod === 'Louver' ? 'block' : 'none';
 
   measSection.style.display = 'block';
@@ -624,35 +772,36 @@ function addMeasRow(itemId) {
   div.id = 'mrow-'+rid;
 
   if (isPVC) {
+    // PVC Door: H × Top × Bottom — Bottom is OPTIONAL
     div.innerHTML = `
       <span class="meas-num">${rowNum}</span>
       <div class="meas-fields">
         <div class="meas-grid-3">
-          <input type="text" id="mW-${rid}" placeholder="47 1/4" inputmode="text" onfocus="lastFocused=this" autocomplete="off" autocorrect="off" spellcheck="false">
+          <input type="text" id="mH-${rid}" placeholder="83" inputmode="text" autocomplete="off" autocorrect="off" spellcheck="false">
           <span class="meas-sep">×</span>
-          <input type="text" id="mM-${rid}" placeholder="4 1/2" inputmode="text" onfocus="lastFocused=this" autocomplete="off" autocorrect="off" spellcheck="false">
+          <input type="text" id="mT-${rid}" placeholder="4 1/2" inputmode="text" autocomplete="off" autocorrect="off" spellcheck="false">
           <span class="meas-sep">×</span>
-          <input type="text" id="mH-${rid}" placeholder="83" inputmode="text" onfocus="lastFocused=this" autocomplete="off" autocorrect="off" spellcheck="false">
+          <input type="text" id="mB-${rid}" placeholder="(optional)" inputmode="text" autocomplete="off" autocorrect="off" spellcheck="false" class="meas-middle-optional">
         </div>
         <div class="meas-labels meas-labels-3">
-          <span class="fl">W (Width)</span><span class="fl fl-x">×</span>
-          <span class="fl">Middle</span><span class="fl fl-x">×</span>
-          <span class="fl">H (Height)</span>
+          <span class="fl">H (Height)</span><span class="fl fl-x">×</span>
+          <span class="fl">Top</span><span class="fl fl-x">×</span>
+          <span class="fl fl-optional">Bottom (opt)</span>
         </div>
       </div>
       <button class="btn-del-meas" onclick="delRow('${rid}',${itemId})">✕</button>`;
   } else {
-    // All other products: W × H only
+    // All other products: H × W
     div.innerHTML = `
       <span class="meas-num">${rowNum}</span>
       <div class="meas-fields">
         <div class="meas-grid-2">
-          <input type="text" id="mW-${rid}" placeholder="47 1/4" inputmode="text" onfocus="lastFocused=this" autocomplete="off" autocorrect="off" spellcheck="false">
+          <input type="text" id="mH-${rid}" placeholder="43 3/8" inputmode="text" autocomplete="off" autocorrect="off" spellcheck="false">
           <span class="meas-sep">×</span>
-          <input type="text" id="mH-${rid}" placeholder="43 3/8" inputmode="text" onfocus="lastFocused=this" autocomplete="off" autocorrect="off" spellcheck="false">
+          <input type="text" id="mW-${rid}" placeholder="47 1/4" inputmode="text" autocomplete="off" autocorrect="off" spellcheck="false">
         </div>
         <div class="meas-labels meas-labels-2">
-          <span class="fl">W (Width)</span><span class="fl fl-x">×</span><span class="fl">H (Height)</span>
+          <span class="fl">H (Height)</span><span class="fl fl-x">×</span><span class="fl">W (Width)</span>
         </div>
       </div>
       <button class="btn-del-meas" onclick="delRow('${rid}',${itemId})">✕</button>`;
@@ -660,8 +809,7 @@ function addMeasRow(itemId) {
 
   rows.appendChild(div);
   div.querySelectorAll('input').forEach(inp => {
-    attachAutoSlash(inp);
-    inp.addEventListener('focus', () => { lastFocused = inp; });
+    attachMeasInputRules(inp);
   });
   setTimeout(() => div.scrollIntoView({behavior:'smooth',block:'nearest'}), 60);
 }
@@ -696,10 +844,16 @@ function collectItems() {
     const measurements = [];
     document.getElementById('meas-rows-'+id)?.querySelectorAll('.meas-row').forEach(row => {
       const rid = row.id.replace('mrow-','');
-      const w = document.getElementById('mW-'+rid)?.value.trim() || '';
       const h = document.getElementById('mH-'+rid)?.value.trim() || '';
-      const m = document.getElementById('mM-'+rid)?.value.trim() || '';
-      if (w || h) measurements.push(isPVC ? {w,m,h} : {w,h});
+      const w = document.getElementById('mW-'+rid)?.value.trim() || '';
+      // PVC Door: Top required, Bottom optional
+      const t = isPVC ? (document.getElementById('mT-'+rid)?.value.trim() || '') : '';
+      const b = isPVC ? (document.getElementById('mB-'+rid)?.value.trim() || '—') : '';
+      if (isPVC) {
+        if (h || t) measurements.push({h, top:t, bottom:b});
+      } else {
+        if (h || w) measurements.push({h, w});
+      }
     });
     if (measurements.length) items.push({product:prod, direction:dir, louverType, measurements});
   });
@@ -719,17 +873,40 @@ function validate() {
   return ok;
 }
 
+// ── SAVING OVERLAY HELPERS ──
+function savingStep(stepIndex, text) {
+  // Update step text
+  document.getElementById('saving-step-text').textContent = text;
+  // Update dots: previous = done (green), current = active (orange)
+  for (let i = 0; i < 3; i++) {
+    const dot = document.getElementById('sdot-' + i);
+    dot.className = 'saving-dot' + (i < stepIndex ? ' done' : i === stepIndex ? ' active' : '');
+  }
+}
+function showSaving() { document.getElementById('saving-overlay').classList.add('active'); }
+function hideSaving() { document.getElementById('saving-overlay').classList.remove('active'); }
+
 // ── SUBMIT ──
 async function submitForm() {
   if (!validate()) { window.scrollTo({top:0,behavior:'smooth'}); return; }
   const items = collectItems();
   if (!items.length) { showToast('Add at least one product with measurements'); return; }
 
+  // Show saving overlay — step 0: preparing
+  showSaving();
+  savingStep(0, 'Preparing data...');
+
   const gpsLink = (capturedLat && capturedLng)
     ? `https://maps.google.com/?q=${capturedLat},${capturedLng}` : null;
 
+  const entryId = Date.now();
+
+  // Step 1: upload photos
+  savingStep(1, 'Uploading photos to Drive...');
+  const photoLinks = await uploadPhotosToDrive(entryId);
+
   const entry = {
-    id: Date.now(),
+    id: entryId,
     timestamp: new Date().toISOString(),
     worker: document.getElementById('worker').value,
     date: document.getElementById('date').value,
@@ -740,7 +917,8 @@ async function submitForm() {
     gpsLink: gpsLink || '—',
     items,
     notes: document.getElementById('notes').value.trim(),
-    photoCount: photoDataURLs.filter(Boolean).length
+    photoCount: photoLinks.length,
+    photoLinks: photoLinks
   };
 
   // Save locally
@@ -748,11 +926,11 @@ async function submitForm() {
   existing.unshift(entry);
   localStorage.setItem('si_measurements', JSON.stringify(existing));
 
-  // Sync to sheets
+  // Step 2: sync to Sheets
+  savingStep(2, 'Syncing to Google Sheets...');
   let sheetsMsg = '';
   if (SHEETS_URL) {
     try {
-      showToast('Syncing to Google Sheets...');
       await sendToSheets(SHEETS_URL, buildRows(entry));
       sheetsMsg = ' · Sent to Sheets ✓';
     } catch(e) {
@@ -761,17 +939,16 @@ async function submitForm() {
     }
   }
 
+  hideSaving();
+
   const total = items.reduce((s,i) => s+i.measurements.length, 0);
   document.getElementById('success-detail').textContent =
     `${items.length} product(s), ${total} measurement(s) — ${entry.location} · ${entry.worker}${sheetsMsg}`;
 
-  // Build WA summary and set send link
   const summary = buildWASummary(entry);
   document.getElementById('wa-summary').textContent = summary;
-
-  // Store summary for WhatsApp button
   window._waSummary = summary;
-  // Copy immediately while still inside save button tap gesture
+
   try {
     if (navigator.clipboard && window.isSecureContext) {
       navigator.clipboard.writeText(summary).catch(() => {});
@@ -812,9 +989,10 @@ function buildWASummary(e) {
     lines.push(`\n🪟 *${item.product}${louverStr}${dirStr}*`);
     item.measurements.forEach((m, mi) => {
       if (item.product === 'PVC Door') {
-        lines.push(`  ${mi+1}. W: ${m.w}  ×  Mid: ${m.m}  ×  H: ${m.h}`);
+        const botStr = m.bottom && m.bottom !== '—' ? `  ×  Bottom: ${m.bottom}` : '';
+        lines.push(`  ${mi+1}. H: ${m.h}  ×  Top: ${m.top}${botStr}`);
       } else {
-        lines.push(`  ${mi+1}. W: ${m.w}  ×  H: ${m.h}`);
+        lines.push(`  ${mi+1}. H: ${m.h}  ×  W: ${m.w}`);
       }
     });
   });
@@ -823,7 +1001,10 @@ function buildWASummary(e) {
     lines.push('\n━━━━━━━━━━━━━━━━━━━━━');
     lines.push(`📝 Notes: ${e.notes}`);
   }
-  if (e.photoCount > 0) lines.push(`📷 Photos: ${e.photoCount} attached`);
+  if (e.photoLinks && e.photoLinks.length > 0) {
+    lines.push(`📷 Photos (${e.photoLinks.length}):`);
+    e.photoLinks.forEach((link, i) => lines.push(`  Photo ${i+1}: ${link}`));
+  }
   lines.push('\n━━━━━━━━━━━━━━━━━━━━━');
   return lines.join('\n');
 }
@@ -848,15 +1029,13 @@ function copySummary() {
   } else { fallback(); }
 }
 
-// ── SEND TO SHEETS ──
-// Sends to Netlify Function which forwards to Google Sheets
-// This bypasses all mobile CORS/redirect issues completely
+// ── SEND TO SHEETS (via Netlify) ──
 async function sendToSheets(url, rows) {
   try {
     const response = await fetch('/.netlify/functions/save', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({rows: rows})
+      body: JSON.stringify({action: 'saveRows', rows: rows})
     });
     const result = await response.json();
     console.log('Sheets result:', result);
@@ -865,15 +1044,24 @@ async function sendToSheets(url, rows) {
   }
 }
 
-// ── SHEET ROWS ──
+// ── SHEET ROWS — now includes photo links as clickable URLs ──
 function buildRows(entry) {
   const rows = [];
   const d = new Date(entry.timestamp);
   const time = d.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
+  // Photo links: join all Drive URLs separated by newline for the cell
+  const photoCell = (entry.photoLinks && entry.photoLinks.length)
+    ? entry.photoLinks.join('\n')
+    : '';
+
   entry.items.forEach((item, ii) => {
     item.measurements.forEach((m, mi) => {
       const isPVC = item.product === 'PVC Door';
-      const meas = isPVC ? `W:${m.w} x Mid:${m.m} x H:${m.h}` : `W:${m.w} x H:${m.h}`;
+      const meas = isPVC
+        ? (m.bottom && m.bottom !== '—'
+            ? `H:${m.h} x Top:${m.top} x Bottom:${m.bottom}`
+            : `H:${m.h} x Top:${m.top}`)
+        : `H:${m.h} x W:${m.w}`;
       const productLabel = item.louverType ? `${item.product} (${item.louverType})` : item.product;
       rows.push({
         Date: entry.date, Time: time,
@@ -883,12 +1071,13 @@ function buildRows(entry) {
         Product: productLabel,
         Direction: item.direction || '—',
         OpeningNo: ii+1, MeasNo: mi+1,
-        Width: m.w,
-        Middle: isPVC ? m.m : '—',
         Height: m.h,
+        Width: isPVC ? '—' : m.w,
+        Top: isPVC ? m.top : '—',
+        Bottom: isPVC ? m.bottom : '—',
         Measurement: meas,
         Notes: mi===0 && ii===0 ? entry.notes : '',
-        Photos: mi===0 && ii===0 ? (entry.photoCount > 0 ? `${entry.photoCount} photo(s)` : '') : ''
+        Photos: mi===0 && ii===0 ? photoCell : ''
       });
     });
   });
@@ -905,8 +1094,9 @@ function resetForm() {
   document.getElementById('worker').value = '';
   document.getElementById('date').value = new Date().toISOString().split('T')[0];
   capturedLat = null; capturedLng = null;
-  photoDataURLs = [];
+  photoDataURLs = []; photoFileNames = [];
   document.getElementById('photo-previews').innerHTML = '';
+  document.getElementById('photo-upload-status').textContent = '';
   document.getElementById('gps-status').className = 'gps-status';
   document.getElementById('gps-status').textContent = 'Not captured yet';
   document.getElementById('gps-info-box').style.display = 'none';
@@ -915,18 +1105,155 @@ function resetForm() {
   window.scrollTo({top:0,behavior:'smooth'});
 }
 
-// ── DATA PANEL ──
+// ── DATA PANEL — Fetch last 20 from Sheets ──
 function toggleData() {
   const p = document.getElementById('data-panel');
   p.style.display = p.style.display==='block' ? 'none' : 'block';
-  if (p.style.display==='block') renderEntries();
+  if (p.style.display==='block') loadEntriesFromSheets();
 }
 
-function renderEntries() {
+async function loadEntriesFromSheets() {
+  const list = document.getElementById('entries-list');
+  list.innerHTML = '<div class="loading-entries">⏳ Loading last 20 entries from Sheets...</div>';
+  try {
+    const response = await fetch('/.netlify/functions/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'getRecent', limit: 20 })
+    });
+    const result = await response.json();
+    if (result.rows && result.rows.length) {
+      renderSheetEntries(result.rows);
+    } else {
+      list.innerHTML = '<div class="no-entries">No entries found in Sheets.</div>';
+    }
+  } catch(err) {
+    console.warn('Sheets fetch failed, falling back to localStorage:', err);
+    renderLocalEntries();
+  }
+}
+
+function renderSheetEntries(rows) {
+  // Rows from Sheets are flat — group by EntryId or Date+TeamMember+Location
+  // Each row: { Date, Time, TeamMember, Location, Customer, Phone, GPSLink,
+  //             Product, Direction, OpeningNo, MeasNo, Width, Middle, Height,
+  //             Measurement, Notes, Photos }
+  const list = document.getElementById('entries-list');
+
+  // Group rows into entries by Date+Time+TeamMember+Location
+  const grouped = {};
+  rows.forEach(row => {
+    const key = `${row.Date}_${row.Time}_${row.TeamMember}_${row.Location}`;
+    if (!grouped[key]) {
+      grouped[key] = { ...row, items: {} };
+    }
+    const itemKey = `${row.OpeningNo}_${row.Product}`;
+    if (!grouped[key].items[itemKey]) {
+      grouped[key].items[itemKey] = { product: row.Product, direction: row.Direction, measurements: [] };
+    }
+    grouped[key].items[itemKey].measurements.push({
+      meas: row.Measurement, w: row.Width, m: row.Middle, h: row.Height
+    });
+  });
+
+  const entries = Object.values(grouped);
+  if (!entries.length) { list.innerHTML = '<div class="no-entries">No entries found.</div>'; return; }
+
+  list.innerHTML = entries.map((e, idx) => {
+    const gpsHtml = e.GPSLink && e.GPSLink !== '—'
+      ? `<br><a class="ec-map-link" href="${e.GPSLink}" target="_blank">🗺 Open Directions</a>` : '';
+
+    const itemsHtml = Object.values(e.items).map(item => {
+      const chips = item.measurements.map((m, i) =>
+        `<span class="meas-chip">${i+1}. ${m.meas}</span>`
+      ).join('');
+      const dirChip = item.direction && item.direction !== '—'
+        ? `<span class="dir-chip">${item.direction}</span>` : '';
+      return `<div class="ec-product-group">
+        <div class="ec-product-name">${item.product} ${dirChip}</div>
+        <div class="ec-chips">${chips}</div>
+      </div>`;
+    }).join('');
+
+    // Parse photo links from Photos cell
+    const photoLinks = e.Photos ? e.Photos.split('\n').filter(Boolean) : [];
+    const photosBtnHtml = photoLinks.length
+      ? `<button class="ec-btn ec-btn-photo" onclick="togglePhotos(${idx})">📷 Photos (${photoLinks.length})</button>`
+      : '';
+    const photosHtml = photoLinks.length
+      ? `<div class="ec-photos-panel" id="ec-photos-${idx}">
+          ${photoLinks.map((link, li) =>
+            `<a class="ec-photo-link" href="${link}" target="_blank">🖼 View Photo ${li+1}</a>`
+          ).join('')}
+        </div>` : '';
+
+    // Build WA summary for this entry
+    const waSummaryStr = buildWASummaryFromRow(e);
+
+    return `<div class="entry-card">
+      <div class="ec-header">
+        <span class="ec-worker">👤 ${e.TeamMember}</span>
+        <span class="ec-date">${e.Date} ${e.Time}</span>
+      </div>
+      <div class="ec-meta">📍 ${e.Location} · ${e.Customer || '—'}${e.Phone && e.Phone!=='—' ? ' · 📞 '+e.Phone : ''}${gpsHtml}</div>
+      ${itemsHtml}
+      ${e.Notes ? `<div class="ec-notes">📝 ${e.Notes}</div>` : ''}
+      ${photosHtml}
+      <div class="ec-actions">
+        <button class="ec-btn ec-btn-wa" onclick="sendEntryToWA(${idx})">📲 Send to WhatsApp</button>
+        ${photosBtnHtml}
+      </div>
+    </div>`;
+  }).join('');
+
+  // Store entries data for WA send
+  window._sheetEntries = entries;
+}
+
+function togglePhotos(idx) {
+  const panel = document.getElementById(`ec-photos-${idx}`);
+  if (panel) panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+}
+
+function sendEntryToWA(idx) {
+  const e = window._sheetEntries && window._sheetEntries[idx];
+  if (!e) return;
+  const summary = buildWASummaryFromRow(e);
+  const waText = encodeURIComponent(summary);
+  window.open('https://api.whatsapp.com/send?text=' + waText, '_blank');
+}
+
+function buildWASummaryFromRow(e) {
+  const lines = [];
+  lines.push('📐 *Smart Interiors — Site Measurement*');
+  lines.push('━━━━━━━━━━━━━━━━━━━━━');
+  lines.push(`📅 Date: ${e.Date}   🕐 Time: ${e.Time}`);
+  lines.push(`👤 Team Member: ${e.TeamMember}`);
+  lines.push(`📍 Location: ${e.Location}`);
+  if (e.GPSLink && e.GPSLink !== '—') lines.push(`🗺 Directions: ${e.GPSLink}`);
+  if (e.Customer && e.Customer !== '—') lines.push(`🏠 Customer: ${e.Customer}`);
+  if (e.Phone && e.Phone !== '—') lines.push(`📞 Phone: ${e.Phone}`);
+  lines.push('━━━━━━━━━━━━━━━━━━━━━');
+  Object.values(e.items || {}).forEach(item => {
+    lines.push(`\n🪟 *${item.product}*`);
+    item.measurements.forEach((m, mi) => lines.push(`  ${mi+1}. ${m.meas}`));
+  });
+  if (e.Notes) { lines.push('\n📝 Notes: ' + e.Notes); }
+  const photoLinks = e.Photos ? e.Photos.split('\n').filter(Boolean) : [];
+  if (photoLinks.length) {
+    lines.push(`📷 Photos (${photoLinks.length}):`);
+    photoLinks.forEach((link, i) => lines.push(`  Photo ${i+1}: ${link}`));
+  }
+  lines.push('\n━━━━━━━━━━━━━━━━━━━━━');
+  return lines.join('\n');
+}
+
+// Fallback: render from localStorage if Sheets fetch fails
+function renderLocalEntries() {
   const entries = JSON.parse(localStorage.getItem('si_measurements') || '[]');
   const list = document.getElementById('entries-list');
   if (!entries.length) { list.innerHTML='<div class="no-entries">No entries yet.</div>'; return; }
-  list.innerHTML = entries.map(e => {
+  list.innerHTML = entries.slice(0,20).map(e => {
     const d = new Date(e.timestamp);
     const ds = d.toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'});
     const ts = d.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
@@ -935,15 +1262,15 @@ function renderEntries() {
     const itemsHtml = (e.items||[]).map(item => {
       const chips = item.measurements.map((m,i) => {
         const isPVC = item.product === 'PVC Door';
+        const midStr = isPVC && m.m && m.m !== '—' ? ` × Mid:${m.m}` : '';
         const s = isPVC
-          ? `${i+1}. W:${m.w} × Mid:${m.m} × H:${m.h}`
+          ? `${i+1}. W:${m.w}${midStr} × H:${m.h}`
           : `${i+1}. W:${m.w} × H:${m.h}`;
         return `<span class="meas-chip">${s}</span>`;
       }).join('');
       const dirChip = item.direction ? `<span class="dir-chip">${item.direction}</span>` : '';
-      const louverChip = item.louverType ? `<span class="dir-chip">${item.louverType}</span>` : '';
       return `<div class="ec-product-group">
-        <div class="ec-product-name">${item.product} ${louverChip}${dirChip}</div>
+        <div class="ec-product-name">${item.product} ${dirChip}</div>
         <div class="ec-chips">${chips}</div>
       </div>`;
     }).join('');
@@ -959,45 +1286,11 @@ function renderEntries() {
   }).join('');
 }
 
-// ── TEST SYNC ──
-async function testSync() {
-  const resultDiv = document.getElementById('test-result');
-  resultDiv.style.display = 'block';
-  resultDiv.style.background = '#FFF7ED';
-  resultDiv.style.border = '1px solid #FED7AA';
-  resultDiv.textContent = '⏳ Testing connection...';
-
-  try {
-    const testRows = [{
-      Date: '2024-05-13', Time: '12:00', TeamMember: 'TEST',
-      Location: 'Mobile Test', Customer: 'Test', Phone: '123',
-      GPSLink: '-', Product: 'UPVC Window', Direction: '-',
-      OpeningNo: 1, MeasNo: 1, Width: '47', Middle: '-',
-      Height: '43', Measurement: 'W:47 x H:43',
-      Notes: 'mobile test', Photos: ''
-    }];
-
-    const response = await fetch('/.netlify/functions/save', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({rows: testRows})
-    });
-
-    const text = await response.text();
-    resultDiv.style.background = '#E7F8EE';
-    resultDiv.style.border = '1px solid #86EFAC';
-    resultDiv.textContent = '✅ Success! Response: ' + text;
-  } catch(err) {
-    resultDiv.style.background = '#FEE2E2';
-    resultDiv.style.border = '1px solid #FCA5A5';
-    resultDiv.textContent = '❌ Error: ' + err.toString();
-  }
-}
+// ── TEST SYNC ──}
 
 // ── WHATSAPP OPEN ──
 function openWhatsApp() {
   const summary = window._waSummary || document.getElementById('wa-summary').textContent;
-  // Open WhatsApp with message pre-filled — user selects group and taps Send
   const waText = encodeURIComponent(summary);
   window.open('https://api.whatsapp.com/send?text=' + waText, '_blank');
 }

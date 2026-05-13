@@ -1,124 +1,53 @@
-const https = require('https');
-const http = require('http');
-const url = require('url');
+// netlify/functions/save.js
+// Handles three actions:
+//   saveRows    — forward measurement rows to Apps Script → Google Sheets
+//   uploadPhotos — send base64 photos to Apps Script → Google Drive, get back links
+//   getRecent   — fetch last N rows from Apps Script → return to client
 
-// Follow redirects manually — Google Apps Script always redirects
-function fetchWithRedirects(requestUrl, maxRedirects = 5) {
-  return new Promise((resolve, reject) => {
-    const makeRequest = (currentUrl, redirectsLeft) => {
-      const parsed = url.parse(currentUrl);
-      const lib = parsed.protocol === 'https:' ? https : http;
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby5338zmo3YatyvVVjs-Ozd4Sr8BvChpm7Xklc_mWjHzpVUMbVUUjdF69Z6hqCeQWyArA/exec';
 
-      const options = {
-        hostname: parsed.hostname,
-        path: parsed.path,
-        method: 'GET',
-        headers: {
-          'User-Agent': 'SmartInteriors/1.0',
-          'Accept': '*/*'
-        }
-      };
-
-      const req = lib.request(options, (res) => {
-        console.log(`Status: ${res.statusCode} for ${currentUrl.substring(0, 80)}`);
-
-        // Follow redirect
-        if ([301, 302, 303, 307, 308].includes(res.statusCode) && res.headers.location) {
-          if (redirectsLeft === 0) {
-            reject(new Error('Too many redirects'));
-            return;
-          }
-          const nextUrl = res.headers.location.startsWith('http')
-            ? res.headers.location
-            : `${parsed.protocol}//${parsed.hostname}${res.headers.location}`;
-          console.log('Redirecting to:', nextUrl.substring(0, 80));
-          // Consume response body
-          res.resume();
-          makeRequest(nextUrl, redirectsLeft - 1);
-          return;
-        }
-
-        let data = '';
-        res.on('data', chunk => { data += chunk; });
-        res.on('end', () => {
-          console.log('Final response:', data.substring(0, 200));
-          resolve({statusCode: res.statusCode, body: data});
-        });
-      });
-
-      req.on('error', (err) => {
-        console.error('Request error:', err.toString());
-        reject(err);
-      });
-
-      req.setTimeout(15000, () => {
-        req.destroy();
-        reject(new Error('Request timeout'));
-      });
-
-      req.end();
-    };
-
-    makeRequest(requestUrl, maxRedirects);
-  });
-}
-
-exports.handler = async function(event, context) {
-  const headers = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS'
-  };
-
-  if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 200, headers, body: '' };
-  }
-
+exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') {
-    return { statusCode: 405, headers, body: 'Method not allowed' };
+    return { statusCode: 405, body: 'Method Not Allowed' };
   }
+
+  let body;
+  try {
+    body = JSON.parse(event.body);
+  } catch {
+    return { statusCode: 400, body: JSON.stringify({ error: 'Invalid JSON' }) };
+  }
+
+  const action = body.action || 'saveRows'; // default for backwards compatibility
 
   try {
-    const body = JSON.parse(event.body);
-    const rows = body.rows;
+    const response = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      redirect: 'follow',
+      body: JSON.stringify({ action, ...body })
+    });
 
-    if (!rows || rows.length === 0) {
-      return {
-        statusCode: 400, headers,
-        body: JSON.stringify({status: 'error', message: 'No rows'})
-      };
-    }
+    const text = await response.text();
 
-    const SHEETS_URL = process.env.SHEETS_URL;
-    if (!SHEETS_URL) {
-      return {
-        statusCode: 500, headers,
-        body: JSON.stringify({status: 'error', message: 'SHEETS_URL env variable not set'})
-      };
-    }
-
-    const encoded = encodeURIComponent(JSON.stringify({rows}));
-    const fullUrl = `${SHEETS_URL}?data=${encoded}`;
-    console.log('Calling:', fullUrl.substring(0, 100));
-
-    const result = await fetchWithRedirects(fullUrl);
-    console.log('Result status:', result.statusCode);
-    console.log('Result body:', result.body.substring(0, 200));
+    // Try parse as JSON, fall back to raw text
+    let result;
+    try { result = JSON.parse(text); }
+    catch { result = { raw: text }; }
 
     return {
-      statusCode: 200, headers,
-      body: JSON.stringify({
-        status: 'success',
-        sheetsStatus: result.statusCode,
-        sheetsResponse: result.body.substring(0, 100)
-      })
+      statusCode: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*'
+      },
+      body: JSON.stringify(result)
     };
-
-  } catch(err) {
-    console.error('Handler error:', err.toString());
+  } catch (err) {
+    console.error('Netlify function error:', err);
     return {
-      statusCode: 500, headers,
-      body: JSON.stringify({status: 'error', message: err.toString()})
+      statusCode: 500,
+      body: JSON.stringify({ error: err.message })
     };
   }
 };
