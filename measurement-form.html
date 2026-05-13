@@ -305,8 +305,9 @@ const WHATSAPP_URL = 'https://chat.whatsapp.com/KPQXS3b220vENMV9MCZQro';
         <option value="">-- Select --</option>
         <option>Raju</option>
         <option>Vasu</option>
-        <option>Dad</option>
-        <option>Akash</option>
+        <option>Chinna</option>
+        <option>Srinu</option>
+        <option>Sai</option>
       </select>
       <div class="error-msg" id="err-worker">Please select team member</div>
 
@@ -403,11 +404,11 @@ const WHATSAPP_URL = 'https://chat.whatsapp.com/KPQXS3b220vENMV9MCZQro';
       <div class="wa-summary" id="wa-summary"></div>
       <div class="wa-buttons">
         <a id="btn-wa-send" class="btn-wa-send" href="#" target="_blank">
-          <span>📲</span> Send to Group
+          <span>📲</span> Open Group &amp; Paste
         </a>
         <button class="btn-copy" onclick="copySummary()">📋 Copy</button>
       </div>
-      <div class="copy-confirm" id="copy-confirm">✓ Copied! Paste into WhatsApp.</div>
+      <div class="copy-confirm" id="copy-confirm">✓ Message copied! Tap "Open Group & Paste" → paste in group</div>
     </div>
     <div class="success-actions">
       <button class="btn-new" onclick="resetForm()">+ New Entry</button>
@@ -766,9 +767,19 @@ async function submitForm() {
   const summary = buildWASummary(entry);
   document.getElementById('wa-summary').textContent = summary;
 
-  // WhatsApp pre-filled link — opens group chat with message ready
-  const waText = encodeURIComponent(summary);
-  document.getElementById('btn-wa-send').href = `https://api.whatsapp.com/send?text=${waText}`;
+  // WhatsApp — store summary for copy, open group link directly
+  document.getElementById('btn-wa-send').href = WHATSAPP_URL;
+  // Auto-copy message to clipboard so they just paste when group opens
+  try {
+    await navigator.clipboard.writeText(summary);
+  } catch(e) {
+    // fallback clipboard copy
+    const ta = document.createElement('textarea');
+    ta.value = summary; ta.style.cssText = 'position:fixed;opacity:0;';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); } catch(e2) {}
+    document.body.removeChild(ta);
+  }
 
   document.getElementById('form-section').style.display = 'none';
   document.getElementById('success-screen').style.display = 'block';
@@ -832,42 +843,35 @@ function copySummary() {
   } else { fallback(); }
 }
 
-// ── SEND TO SHEETS (iframe POST) ──
-function sendToSheets(url, rows) {
-  return new Promise((resolve, reject) => {
-    try {
-      const iframe = document.createElement('iframe');
-      iframe.name = 'si_frame_' + Date.now();
-      iframe.style.cssText = 'display:none;position:fixed;top:-9999px;';
-      document.body.appendChild(iframe);
+// ── SEND TO SHEETS ──
+// Tries 3 methods in sequence — works on mobile and laptop
+async function sendToSheets(url, rows) {
+  const payload = JSON.stringify({rows: rows});
 
-      const form = document.createElement('form');
-      form.method = 'POST';
-      form.action = url;
-      form.target = iframe.name;
-      form.style.display = 'none';
+  // Method 1: FormData POST (works on most mobile browsers)
+  try {
+    const fd = new FormData();
+    fd.append('data', payload);
+    await fetch(url, { method:'POST', mode:'no-cors', body: fd });
+    return; // if no error, assume success
+  } catch(e1) { console.log('Method 1 failed:', e1); }
 
-      const input = document.createElement('input');
-      input.type = 'hidden';
-      input.name = 'data';
-      input.value = JSON.stringify({rows});
-      form.appendChild(input);
-      document.body.appendChild(form);
+  // Method 2: URL-encoded POST
+  try {
+    const body = 'data=' + encodeURIComponent(payload);
+    await fetch(url, {
+      method:'POST', mode:'no-cors',
+      headers:{'Content-Type':'application/x-www-form-urlencoded'},
+      body: body
+    });
+    return;
+  } catch(e2) { console.log('Method 2 failed:', e2); }
 
-      iframe.onload = () => {
-        setTimeout(() => {
-          try { document.body.removeChild(form); document.body.removeChild(iframe); } catch(e) {}
-        }, 2000);
-        resolve();
-      };
-      setTimeout(() => {
-        try { document.body.removeChild(form); document.body.removeChild(iframe); } catch(e) {}
-        resolve();
-      }, 6000);
-
-      form.submit();
-    } catch(err) { reject(err); }
-  });
+  // Method 3: GET with data in URL param (laptop fallback)
+  try {
+    const encoded = encodeURIComponent(payload);
+    await fetch(url + '?data=' + encoded, { method:'GET', mode:'no-cors' });
+  } catch(e3) { console.log('Method 3 failed:', e3); }
 }
 
 // ── SHEET ROWS ──
