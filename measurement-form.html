@@ -4,6 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>Smart Interiors – Measurement Entry</title>
+<script>
+// ════════════════════════════════════════
+// CONFIG — UPDATE THESE TWO LINES ONLY
+const SHEETS_URL   = 'https://script.google.com/macros/s/AKfycbwCTGOwV9FE6f-YcpJ0WS6vvMC82bOZx9-0yYI5pMe1uU7mAdUXy2tmQYskaWoyfet2qA/exec';
+const WHATSAPP_URL = 'https://chat.whatsapp.com/KPQXS3b220vENMV9MCZQro';
+// ════════════════════════════════════════
+</script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;600;800&family=Noto+Sans:wght@400;600&display=swap');
 
@@ -16,6 +23,7 @@
     --green: #22C55E;
     --red: #EF4444;
     --blue: #3B82F6;
+    --wa: #25D366;
   }
 
   * { box-sizing:border-box; margin:0; padding:0; }
@@ -73,7 +81,7 @@
   }
   textarea { resize:vertical; min-height:65px; font-size:0.92rem; }
 
-  /* GPS bar */
+  /* GPS */
   .gps-bar {
     display:flex; align-items:center; gap:8px;
     background:#F0F7FF; border:1.5px solid #BFDBFE;
@@ -85,13 +93,36 @@
   .btn-gps {
     background:var(--blue); color:white; border:none;
     border-radius:8px; padding:7px 12px; font-size:0.75rem;
-    font-weight:700; cursor:pointer; flex-shrink:0;
-    font-family:'Baloo 2',cursive;
+    font-weight:700; cursor:pointer; flex-shrink:0; font-family:'Baloo 2',cursive;
   }
   .gps-status { font-size:0.72rem; margin-top:6px; color:var(--muted); line-height:1.5; }
   .gps-status.ok  { color:var(--green); }
   .gps-status.err { color:var(--red); }
-  .gps-status.warn { color:#D97706; }
+
+  /* Photo upload */
+  .photo-upload-area {
+    border:2px dashed var(--border); border-radius:12px;
+    padding:16px; text-align:center; cursor:pointer;
+    background:#FAFBFF; transition:border-color 0.2s;
+    margin-top:4px;
+  }
+  .photo-upload-area:hover { border-color:var(--orange); }
+  .photo-upload-area input { display:none; }
+  .photo-upload-icon { font-size:1.8rem; display:block; margin-bottom:6px; }
+  .photo-upload-text { font-size:0.8rem; color:var(--muted); line-height:1.5; }
+  .photo-upload-text strong { color:var(--orange); display:block; font-size:0.85rem; }
+  .photo-previews { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+  .photo-thumb {
+    width:72px; height:72px; border-radius:8px;
+    object-fit:cover; border:1.5px solid var(--border); position:relative;
+  }
+  .photo-thumb-wrap { position:relative; display:inline-block; }
+  .photo-remove {
+    position:absolute; top:-6px; right:-6px;
+    background:var(--red); color:white; border:none;
+    border-radius:50%; width:18px; height:18px;
+    font-size:0.65rem; cursor:pointer; line-height:18px; text-align:center;
+  }
 
   /* Items */
   .items-list { display:flex; flex-direction:column; gap:12px; margin-top:4px; }
@@ -110,6 +141,9 @@
     border-radius:7px; padding:3px 10px; font-size:0.72rem; font-weight:700; cursor:pointer;
   }
   .item-body { padding:12px 14px; }
+
+  /* Louver type row */
+  .louver-type-row { margin-top:10px; display:none; }
   .direction-row { margin-top:10px; display:none; }
 
   /* Meas rows */
@@ -124,19 +158,14 @@
   .meas-grid-3 { display:grid; grid-template-columns:1fr 14px 1fr 14px 1fr; align-items:center; gap:4px; }
   .meas-grid-2 input, .meas-grid-3 input {
     text-align:center; font-size:0.95rem; font-weight:600; padding:11px 6px;
-  }
-  /* highlight measurement inputs so workers know these are special */
-  .meas-grid-2 input, .meas-grid-3 input {
     background:#FFFBF7; border-color:#FFD4B0;
   }
-  .meas-grid-2 input:focus, .meas-grid-3 input:focus {
-    background:white; border-color:var(--orange);
-  }
+  .meas-grid-2 input:focus, .meas-grid-3 input:focus { background:white; border-color:var(--orange); }
   .meas-sep { text-align:center; font-size:1rem; font-weight:800; color:var(--muted); }
   .meas-labels { display:grid; gap:4px; margin-top:3px; }
   .meas-labels-2 { grid-template-columns:1fr 20px 1fr; }
   .meas-labels-3 { grid-template-columns:1fr 14px 1fr 14px 1fr; }
-  .fl { font-size:0.62rem; color:var(--muted); font-weight:600; text-transform:uppercase; text-align:center; }
+  .fl { font-size:0.65rem; color:var(--orange); font-weight:700; text-transform:uppercase; text-align:center; letter-spacing:0.3px; }
   .fl-x { visibility:hidden; }
   .btn-del-meas { background:none; border:none; color:#CCC; font-size:1.1rem; cursor:pointer; padding:4px; margin-top:8px; }
   .btn-del-meas:active { color:var(--red); }
@@ -152,24 +181,18 @@
   }
   .btn-add-item:active { background:#FFE5D0; }
 
-  /* fraction helper */
+  /* Fraction helper */
   .fraction-helper {
     background:#FFF7F2; border:1.5px solid #FFD4B0;
     border-radius:10px; padding:11px 13px; margin-top:12px;
   }
-  .fh-title { font-size:0.72rem; font-weight:700; color:var(--orange); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.4px; }
+  .fh-title { font-size:0.72rem; font-weight:700; color:var(--orange); margin-bottom:8px; text-transform:uppercase; }
   .fraction-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:5px; }
   .frac-btn { background:white; border:1.5px solid #FFD4B0; border-radius:7px; padding:7px 4px; text-align:center; cursor:pointer; }
   .frac-btn:active { background:var(--orange); color:white; border-color:var(--orange); }
   .frac-sym { font-size:0.95rem; font-weight:700; display:block; }
   .frac-dec { font-size:0.62rem; color:var(--muted); display:block; margin-top:1px; }
   .frac-hint { font-size:0.7rem; color:var(--muted); margin-top:7px; line-height:1.5; }
-
-  /* slash indicator badge on focused meas input */
-  .slash-tip {
-    font-size:0.68rem; color:var(--orange); text-align:center;
-    margin-top:3px; display:none; font-weight:600;
-  }
 
   .btn-submit {
     width:100%; padding:16px; background:var(--orange); color:white;
@@ -178,7 +201,7 @@
     box-shadow:0 4px 18px rgba(255,107,0,0.32); margin-top:4px;
   }
 
-  /* success */
+  /* Success */
   .success-screen { display:none; padding:16px 0; }
   .success-top { text-align:center; padding:16px; }
   .success-icon { font-size:3rem; display:block; margin-bottom:10px; }
@@ -197,24 +220,30 @@
     background:white; border-radius:10px; padding:12px;
     font-size:0.82rem; line-height:1.7; white-space:pre-wrap;
     color:var(--text); border:1px solid #BBF7D0;
-    max-height:260px; overflow-y:auto; word-break:break-word;
+    max-height:240px; overflow-y:auto; word-break:break-word;
+  }
+  .wa-buttons { display:flex; gap:8px; margin-top:10px; }
+  .btn-wa-send {
+    flex:1; padding:12px 8px; background:var(--wa); color:white; border:none;
+    border-radius:10px; font-family:'Baloo 2',cursive; font-size:0.9rem;
+    font-weight:800; cursor:pointer; display:flex; align-items:center;
+    justify-content:center; gap:6px; text-decoration:none;
   }
   .btn-copy {
-    width:100%; margin-top:10px; padding:12px; background:#25D366;
-    color:white; border:none; border-radius:10px;
-    font-family:'Baloo 2',cursive; font-size:0.95rem; font-weight:800; cursor:pointer;
-    display:flex; align-items:center; justify-content:center; gap:8px;
+    flex:1; padding:12px 8px; background:#F0F0F0; color:var(--text); border:none;
+    border-radius:10px; font-family:'Baloo 2',cursive; font-size:0.9rem;
+    font-weight:700; cursor:pointer; display:flex; align-items:center;
+    justify-content:center; gap:6px;
   }
   .copy-confirm { text-align:center; font-size:0.75rem; color:#15803D; margin-top:6px; display:none; }
 
   .success-actions { display:flex; gap:8px; padding:0 0 8px; }
-  .btn-new, .btn-export {
+  .btn-new {
     flex:1; padding:13px 10px; border-radius:12px;
-    font-family:'Baloo 2',cursive; font-size:0.88rem;
+    font-family:'Baloo 2',cursive; font-size:0.9rem;
     font-weight:700; border:none; cursor:pointer; color:white;
+    background:var(--orange);
   }
-  .btn-new { background:var(--orange); }
-  .btn-export { background:var(--blue); }
 
   .data-toggle { text-align:center; margin-top:10px; }
   .data-toggle button {
@@ -250,13 +279,6 @@
   .error-msg { color:var(--red); font-size:0.75rem; margin-top:4px; display:none; }
   .field-error { border-color:var(--red) !important; }
 
-  .sheets-banner {
-    background:#E8F5E9; border:1.5px solid #A5D6A7; border-radius:12px;
-    padding:12px 14px; margin-bottom:12px; font-size:0.8rem; color:#2E7D32; line-height:1.5;
-  }
-  .sheets-banner strong { display:block; margin-bottom:4px; }
-  .sheets-banner input { margin-top:6px; font-size:0.85rem; padding:9px 11px; border-color:#A5D6A7; }
-
   .info-box {
     background:#FFF7ED; border:1.5px solid #FED7AA; border-radius:10px;
     padding:10px 13px; font-size:0.75rem; color:#92400E; line-height:1.6; margin-top:8px;
@@ -273,12 +295,6 @@
 
 <div class="container">
   <div id="form-section">
-
-    <div class="sheets-banner">
-      <strong>📊 Google Sheets Auto-Sync</strong>
-      Paste your Google Apps Script URL once — every entry saves to your sheet automatically.
-      <input type="text" id="sheets-url" placeholder="https://script.google.com/macros/s/...">
-    </div>
 
     <!-- Site info -->
     <div class="card">
@@ -313,14 +329,7 @@
       <div class="gps-status" id="gps-status">Not captured yet</div>
       <div id="gps-info-box" style="display:none;" class="info-box">
         <strong>⚠️ GPS needs https:// to work</strong>
-        You are opening this file directly from phone storage (file://). 
-        GPS location only works when the file is hosted online.<br><br>
-        <strong>Fix (free, 2 minutes):</strong><br>
-        1. Go to github.com → create free account<br>
-        2. New repository → upload this HTML file<br>
-        3. Settings → Pages → enable<br>
-        4. Share the https:// link in your WhatsApp group<br><br>
-        GPS will work automatically after that.
+        Open via the GitHub Pages link for GPS to work.
       </div>
 
       <label>Customer Name</label>
@@ -340,7 +349,7 @@
       <button class="btn-add-item" onclick="addItem()">+ Add Product / Opening</button>
 
       <div class="fraction-helper">
-        <div class="fh-title">⚡ Quick Fractions</div>
+        <div class="fh-title">⚡ Quick Fractions — tap a box first</div>
         <div class="fraction-grid">
           <div class="frac-btn" onclick="ins('1/8')"><span class="frac-sym">⅛</span><span class="frac-dec">1/8</span></div>
           <div class="frac-btn" onclick="ins('1/4')"><span class="frac-sym">¼</span><span class="frac-dec">1/4</span></div>
@@ -351,12 +360,22 @@
           <div class="frac-btn" onclick="ins('7/8')"><span class="frac-sym">⅞</span><span class="frac-dec">7/8</span></div>
           <div class="frac-btn" onclick="ins('1/16')"><span class="frac-sym">¹⁄₁₆</span><span class="frac-dec">1/16</span></div>
         </div>
-        <div class="frac-hint">
-          💡 <strong>Auto-slash:</strong> Type the whole number and space, then the numerator and space → slash appears automatically.<br>
-          Example: type <strong>47</strong> <strong>space</strong> <strong>1</strong> <strong>space</strong> → becomes <strong>47 1/</strong> → type <strong>4</strong> → <strong>47 1/4</strong> ✓<br>
-          Or just tap the fraction buttons above after tapping a box.
+        <div class="frac-hint">💡 Auto-slash: type <strong>47 space 1 space</strong> → becomes <strong>47 1/</strong> → type denominator</div>
+      </div>
+    </div>
+
+    <!-- Photo upload -->
+    <div class="card">
+      <div class="card-title">📷 Reference Photos <span style="font-size:0.75rem;font-weight:400;color:var(--muted);margin-left:4px;">(optional)</span></div>
+      <div class="photo-upload-area" onclick="document.getElementById('photo-input').click()">
+        <input type="file" id="photo-input" accept="image/*" multiple onchange="handlePhotos(event)">
+        <span class="photo-upload-icon">📸</span>
+        <div class="photo-upload-text">
+          <strong>Tap to add photos</strong>
+          Site photos, sketches, reference images
         </div>
       </div>
+      <div class="photo-previews" id="photo-previews"></div>
     </div>
 
     <div class="card">
@@ -368,7 +387,6 @@
 
     <div class="data-toggle">
       <button onclick="toggleData()">📋 View Saved Entries</button>
-      <button onclick="exportCSV()">⬇️ Download CSV</button>
     </div>
     <div id="data-panel"><div id="entries-list"></div></div>
   </div>
@@ -383,12 +401,16 @@
     <div class="wa-box">
       <div class="wa-title">💬 WhatsApp Summary</div>
       <div class="wa-summary" id="wa-summary"></div>
-      <button class="btn-copy" onclick="copySummary()">📋 Copy & Paste into WhatsApp</button>
-      <div class="copy-confirm" id="copy-confirm">✓ Copied! Open WhatsApp and paste.</div>
+      <div class="wa-buttons">
+        <a id="btn-wa-send" class="btn-wa-send" href="#" target="_blank">
+          <span>📲</span> Send to Group
+        </a>
+        <button class="btn-copy" onclick="copySummary()">📋 Copy</button>
+      </div>
+      <div class="copy-confirm" id="copy-confirm">✓ Copied! Paste into WhatsApp.</div>
     </div>
     <div class="success-actions">
       <button class="btn-new" onclick="resetForm()">+ New Entry</button>
-      <button class="btn-export" onclick="exportCSV()">⬇️ CSV</button>
     </div>
   </div>
 </div>
@@ -399,43 +421,46 @@ let itemCount = 0;
 let lastFocused = null;
 let capturedLat = null;
 let capturedLng = null;
+let photoDataURLs = []; // stores base64 photos
 
-const PRODUCTS = ['-- Select Product --','UPVC Window','Aluminium Window','UPVC Door','Aluminium Door','PVC Door','WPC Door','Wood Door','Aluminium Partition','Other'];
+const PRODUCTS = [
+  '-- Select Product --',
+  'UPVC Window',
+  'Aluminium Window',
+  'UPVC Door',
+  'Aluminium Door',
+  'PVC Door',
+  'WPC Door',
+  'Wood Door',
+  'Aluminium Partition',
+  'Louver',
+  'Other'
+];
 const DIRECTIONS = ['-- Door Direction --','RI — Right In','RO — Right Out','LI — Left In','LO — Left Out'];
+const LOUVER_TYPES = ['-- Louver Type --','Aluminium Louver','UPVC Louver'];
 
 // Init
 document.getElementById('date').value = new Date().toISOString().split('T')[0];
-const savedUrl = localStorage.getItem('si_sheets_url') || '';
-document.getElementById('sheets-url').value = savedUrl;
-document.getElementById('sheets-url').addEventListener('change', e => {
-  localStorage.setItem('si_sheets_url', e.target.value.trim());
-});
 addItem();
 
 // ── GPS ──
 function captureGPS() {
   const status = document.getElementById('gps-status');
   const infoBox = document.getElementById('gps-info-box');
-
-  // Detect file:// protocol — GPS won't work
   if (window.location.protocol === 'file:') {
     status.className = 'gps-status err';
-    status.textContent = '✗ GPS blocked — file:// link detected';
+    status.textContent = '✗ GPS blocked — open via GitHub Pages link';
     infoBox.style.display = 'block';
     return;
   }
-
   infoBox.style.display = 'none';
-
   if (!navigator.geolocation) {
     status.className = 'gps-status err';
     status.textContent = '✗ GPS not supported on this device';
     return;
   }
-
   status.className = 'gps-status';
   status.textContent = '📡 Getting location...';
-
   navigator.geolocation.getCurrentPosition(
     pos => {
       capturedLat = pos.coords.latitude.toFixed(6);
@@ -445,47 +470,64 @@ function captureGPS() {
     },
     err => {
       status.className = 'gps-status err';
-      let msg = '✗ Could not get location. ';
-      if (err.code === 1) msg += 'Please allow location permission in Chrome settings.';
+      let msg = '✗ ';
+      if (err.code === 1) msg += 'Allow location permission in Chrome settings.';
       else if (err.code === 2) msg += 'Location unavailable. Try outdoors.';
-      else msg += 'Request timed out. Try again.';
+      else msg += 'Timed out. Try again.';
       status.textContent = msg;
     },
     { enableHighAccuracy:true, timeout:12000, maximumAge:0 }
   );
 }
 
-// ── AUTO-SLASH — robust version ──
-// Strategy: on every input event, check if value matches pattern
-// "DIGITS SPACE DIGITS SPACE" at the end — replace with "DIGITS SPACE DIGITS/"
-// This works on all keyboards including Android Gboard, Samsung, iOS
-function attachAutoSlash(input) {
-  let prevValue = '';
+// ── PHOTO HANDLING ──
+function handlePhotos(event) {
+  const files = Array.from(event.target.files);
+  files.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      photoDataURLs.push(e.target.result);
+      renderPhotoPreview(e.target.result, photoDataURLs.length - 1);
+    };
+    reader.readAsDataURL(file);
+  });
+  // reset input so same file can be re-selected
+  event.target.value = '';
+}
 
+function renderPhotoPreview(dataURL, index) {
+  const previews = document.getElementById('photo-previews');
+  const wrap = document.createElement('div');
+  wrap.className = 'photo-thumb-wrap';
+  wrap.id = 'photo-wrap-' + index;
+  wrap.innerHTML = `
+    <img src="${dataURL}" class="photo-thumb">
+    <button class="photo-remove" onclick="removePhoto(${index})">✕</button>
+  `;
+  previews.appendChild(wrap);
+}
+
+function removePhoto(index) {
+  photoDataURLs[index] = null;
+  document.getElementById('photo-wrap-' + index)?.remove();
+}
+
+// ── AUTO-SLASH ──
+function attachAutoSlash(input) {
   input.addEventListener('input', function() {
     const val = this.value;
-    const cursorPos = this.selectionStart;
-
-    // Pattern: ends with "number space number space"
-    // e.g. "47 1 " or "47 3 " — insert slash before the last space's position
-    // More specifically: [digits][space][digits][space] at end
     const match = val.match(/^(.*?)(\d+) (\d+) $/);
     if (match) {
       const newVal = match[1] + match[2] + ' ' + match[3] + '/';
       this.value = newVal;
       this.selectionStart = this.selectionEnd = newVal.length;
     }
-    prevValue = this.value;
   });
-
-  // Also handle keydown for space key explicitly (more reliable on some devices)
   input.addEventListener('keydown', function(e) {
     if (e.key !== ' ' && e.key !== 'Spacebar') return;
     const val = this.value;
     const cursor = this.selectionStart;
     const before = val.substring(0, cursor);
-
-    // Pattern before cursor: digits space digits (no slash yet after these digits)
     const m = before.match(/^(.*?)(\d+) (\d+)$/);
     if (m && !before.includes('/')) {
       e.preventDefault();
@@ -515,6 +557,12 @@ function addItem() {
       <select id="prod-${id}" onchange="onProdChange(${id})">
         ${PRODUCTS.map(p => `<option value="${p==='-- Select Product --'?'':p}">${p}</option>`).join('')}
       </select>
+      <div class="louver-type-row" id="louver-row-${id}">
+        <label>Louver Type *</label>
+        <select id="louver-${id}">
+          ${LOUVER_TYPES.map((t,i) => `<option value="${i===0?'':t}">${t}</option>`).join('')}
+        </select>
+      </div>
       <div class="direction-row" id="dir-row-${id}">
         <label>Door Direction *</label>
         <select id="dir-${id}">
@@ -539,10 +587,22 @@ function removeItem(id) {
 function onProdChange(id) {
   const prod = document.getElementById('prod-'+id).value;
   const dirRow = document.getElementById('dir-row-'+id);
+  const louverRow = document.getElementById('louver-row-'+id);
   const measSection = document.getElementById('meas-section-'+id);
   const measRows = document.getElementById('meas-rows-'+id);
-  if (!prod) { dirRow.style.display='none'; measSection.style.display='none'; return; }
-  dirRow.style.display = prod==='PVC Door' ? 'block' : 'none';
+
+  if (!prod) {
+    dirRow.style.display = 'none';
+    louverRow.style.display = 'none';
+    measSection.style.display = 'none';
+    return;
+  }
+
+  // Show direction only for PVC Door
+  dirRow.style.display = prod === 'PVC Door' ? 'block' : 'none';
+  // Show louver type only for Louver
+  louverRow.style.display = prod === 'Louver' ? 'block' : 'none';
+
   measSection.style.display = 'block';
   measRows.innerHTML = '';
   addMeasRow(id);
@@ -572,13 +632,14 @@ function addMeasRow(itemId) {
           <input type="text" id="mH-${rid}" placeholder="83" inputmode="text" onfocus="lastFocused=this" autocomplete="off" autocorrect="off" spellcheck="false">
         </div>
         <div class="meas-labels meas-labels-3">
-          <span class="fl">Width</span><span class="fl fl-x">×</span>
+          <span class="fl">W (Width)</span><span class="fl fl-x">×</span>
           <span class="fl">Middle</span><span class="fl fl-x">×</span>
-          <span class="fl">Height</span>
+          <span class="fl">H (Height)</span>
         </div>
       </div>
       <button class="btn-del-meas" onclick="delRow('${rid}',${itemId})">✕</button>`;
   } else {
+    // All other products: W × H only
     div.innerHTML = `
       <span class="meas-num">${rowNum}</span>
       <div class="meas-fields">
@@ -588,20 +649,17 @@ function addMeasRow(itemId) {
           <input type="text" id="mH-${rid}" placeholder="43 3/8" inputmode="text" onfocus="lastFocused=this" autocomplete="off" autocorrect="off" spellcheck="false">
         </div>
         <div class="meas-labels meas-labels-2">
-          <span class="fl">Width</span><span class="fl fl-x">×</span><span class="fl">Height</span>
+          <span class="fl">W (Width)</span><span class="fl fl-x">×</span><span class="fl">H (Height)</span>
         </div>
       </div>
       <button class="btn-del-meas" onclick="delRow('${rid}',${itemId})">✕</button>`;
   }
 
   rows.appendChild(div);
-
-  // Attach auto-slash + focus tracking to every measurement input in this row
   div.querySelectorAll('input').forEach(inp => {
     attachAutoSlash(inp);
     inp.addEventListener('focus', () => { lastFocused = inp; });
   });
-
   setTimeout(() => div.scrollIntoView({behavior:'smooth',block:'nearest'}), 60);
 }
 
@@ -629,7 +687,9 @@ function collectItems() {
     const prod = document.getElementById('prod-'+id)?.value;
     if (!prod) return;
     const isPVC = prod === 'PVC Door';
+    const isLouver = prod === 'Louver';
     const dir = isPVC ? (document.getElementById('dir-'+id)?.value || '') : '';
+    const louverType = isLouver ? (document.getElementById('louver-'+id)?.value || '') : '';
     const measurements = [];
     document.getElementById('meas-rows-'+id)?.querySelectorAll('.meas-row').forEach(row => {
       const rid = row.id.replace('mrow-','');
@@ -638,7 +698,7 @@ function collectItems() {
       const m = document.getElementById('mM-'+rid)?.value.trim() || '';
       if (w || h) measurements.push(isPVC ? {w,m,h} : {w,h});
     });
-    if (measurements.length) items.push({product:prod, direction:dir, measurements});
+    if (measurements.length) items.push({product:prod, direction:dir, louverType, measurements});
   });
   return items;
 }
@@ -676,19 +736,21 @@ async function submitForm() {
     lat: capturedLat, lng: capturedLng,
     gpsLink: gpsLink || '—',
     items,
-    notes: document.getElementById('notes').value.trim()
+    notes: document.getElementById('notes').value.trim(),
+    photoCount: photoDataURLs.filter(Boolean).length
   };
 
+  // Save locally
   const existing = JSON.parse(localStorage.getItem('si_measurements') || '[]');
   existing.unshift(entry);
   localStorage.setItem('si_measurements', JSON.stringify(existing));
 
-  const url = document.getElementById('sheets-url').value.trim();
+  // Sync to sheets
   let sheetsMsg = '';
-  if (url) {
+  if (SHEETS_URL) {
     try {
       showToast('Syncing to Google Sheets...');
-      await sendToSheets(url, buildRows(entry));
+      await sendToSheets(SHEETS_URL, buildRows(entry));
       sheetsMsg = ' · Sent to Sheets ✓';
     } catch(e) {
       console.error('Sheets error:', e);
@@ -699,7 +761,15 @@ async function submitForm() {
   const total = items.reduce((s,i) => s+i.measurements.length, 0);
   document.getElementById('success-detail').textContent =
     `${items.length} product(s), ${total} measurement(s) — ${entry.location} · ${entry.worker}${sheetsMsg}`;
-  document.getElementById('wa-summary').textContent = buildWASummary(entry);
+
+  // Build WA summary and set send link
+  const summary = buildWASummary(entry);
+  document.getElementById('wa-summary').textContent = summary;
+
+  // WhatsApp pre-filled link — opens group chat with message ready
+  const waText = encodeURIComponent(summary);
+  document.getElementById('btn-wa-send').href = `https://api.whatsapp.com/send?text=${waText}`;
+
   document.getElementById('form-section').style.display = 'none';
   document.getElementById('success-screen').style.display = 'block';
   window.scrollTo({top:0,behavior:'smooth'});
@@ -722,12 +792,14 @@ function buildWASummary(e) {
 
   e.items.forEach((item) => {
     const dirStr = item.direction ? ` (${item.direction})` : '';
-    lines.push(`\n🪟 *${item.product}${dirStr}*`);
+    const louverStr = item.louverType ? ` — ${item.louverType}` : '';
+    lines.push(`\n🪟 *${item.product}${louverStr}${dirStr}*`);
     item.measurements.forEach((m, mi) => {
-      const measStr = item.product === 'PVC Door'
-        ? `${m.w} × ${m.m} × ${m.h}`
-        : `${m.w} × ${m.h}`;
-      lines.push(`  ${mi+1}. ${measStr}`);
+      if (item.product === 'PVC Door') {
+        lines.push(`  ${mi+1}. W: ${m.w}  ×  Mid: ${m.m}  ×  H: ${m.h}`);
+      } else {
+        lines.push(`  ${mi+1}. W: ${m.w}  ×  H: ${m.h}`);
+      }
     });
   });
 
@@ -735,6 +807,7 @@ function buildWASummary(e) {
     lines.push('\n━━━━━━━━━━━━━━━━━━━━━');
     lines.push(`📝 Notes: ${e.notes}`);
   }
+  if (e.photoCount > 0) lines.push(`📷 Photos: ${e.photoCount} attached`);
   lines.push('\n━━━━━━━━━━━━━━━━━━━━━');
   return lines.join('\n');
 }
@@ -759,55 +832,41 @@ function copySummary() {
   } else { fallback(); }
 }
 
-// ── SEND TO SHEETS ──
-// Uses hidden iframe + form POST to bypass Apps Script CORS redirect
+// ── SEND TO SHEETS (iframe POST) ──
 function sendToSheets(url, rows) {
   return new Promise((resolve, reject) => {
     try {
-      // Create hidden iframe
       const iframe = document.createElement('iframe');
-      iframe.name = 'sheets_iframe_' + Date.now();
+      iframe.name = 'si_frame_' + Date.now();
       iframe.style.cssText = 'display:none;position:fixed;top:-9999px;';
       document.body.appendChild(iframe);
 
-      // Create hidden form targeting the iframe
       const form = document.createElement('form');
       form.method = 'POST';
       form.action = url;
       form.target = iframe.name;
       form.style.display = 'none';
 
-      // Add data as hidden input
       const input = document.createElement('input');
       input.type = 'hidden';
       input.name = 'data';
-      input.value = JSON.stringify({rows: rows});
+      input.value = JSON.stringify({rows});
       form.appendChild(input);
-
       document.body.appendChild(form);
 
-      // Submit and cleanup after delay
       iframe.onload = () => {
         setTimeout(() => {
-          document.body.removeChild(form);
-          document.body.removeChild(iframe);
+          try { document.body.removeChild(form); document.body.removeChild(iframe); } catch(e) {}
         }, 2000);
         resolve();
       };
-
-      // Timeout fallback
       setTimeout(() => {
-        try {
-          document.body.removeChild(form);
-          document.body.removeChild(iframe);
-        } catch(e) {}
-        resolve(); // resolve anyway — data saved locally
-      }, 5000);
+        try { document.body.removeChild(form); document.body.removeChild(iframe); } catch(e) {}
+        resolve();
+      }, 6000);
 
       form.submit();
-    } catch(err) {
-      reject(err);
-    }
+    } catch(err) { reject(err); }
   });
 }
 
@@ -818,17 +877,23 @@ function buildRows(entry) {
   const time = d.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
   entry.items.forEach((item, ii) => {
     item.measurements.forEach((m, mi) => {
-      const meas = item.product==='PVC Door' ? `${m.w} x ${m.m} x ${m.h}` : `${m.w} x ${m.h}`;
+      const isPVC = item.product === 'PVC Door';
+      const meas = isPVC ? `W:${m.w} x Mid:${m.m} x H:${m.h}` : `W:${m.w} x H:${m.h}`;
+      const productLabel = item.louverType ? `${item.product} (${item.louverType})` : item.product;
       rows.push({
         Date: entry.date, Time: time,
         TeamMember: entry.worker, Location: entry.location,
         Customer: entry.customer, Phone: entry.phone,
         GPSLink: entry.gpsLink,
-        Product: item.product, Direction: item.direction || '—',
+        Product: productLabel,
+        Direction: item.direction || '—',
         OpeningNo: ii+1, MeasNo: mi+1,
-        Width: m.w, Middle: item.product==='PVC Door' ? m.m : '—', Height: m.h,
+        Width: m.w,
+        Middle: isPVC ? m.m : '—',
+        Height: m.h,
         Measurement: meas,
-        Notes: mi===0 && ii===0 ? entry.notes : ''
+        Notes: mi===0 && ii===0 ? entry.notes : '',
+        Photos: mi===0 && ii===0 ? (entry.photoCount > 0 ? `${entry.photoCount} photo(s)` : '') : ''
       });
     });
   });
@@ -845,6 +910,8 @@ function resetForm() {
   document.getElementById('worker').value = '';
   document.getElementById('date').value = new Date().toISOString().split('T')[0];
   capturedLat = null; capturedLng = null;
+  photoDataURLs = [];
+  document.getElementById('photo-previews').innerHTML = '';
   document.getElementById('gps-status').className = 'gps-status';
   document.getElementById('gps-status').textContent = 'Not captured yet';
   document.getElementById('gps-info-box').style.display = 'none';
@@ -872,14 +939,16 @@ function renderEntries() {
       ? `<br><a class="ec-map-link" href="${e.gpsLink}" target="_blank">🗺 Open Directions</a>` : '';
     const itemsHtml = (e.items||[]).map(item => {
       const chips = item.measurements.map((m,i) => {
-        const s = item.product==='PVC Door'
-          ? `${i+1}. ${m.w} × ${m.m} × ${m.h}`
-          : `${i+1}. ${m.w} × ${m.h}`;
+        const isPVC = item.product === 'PVC Door';
+        const s = isPVC
+          ? `${i+1}. W:${m.w} × Mid:${m.m} × H:${m.h}`
+          : `${i+1}. W:${m.w} × H:${m.h}`;
         return `<span class="meas-chip">${s}</span>`;
       }).join('');
       const dirChip = item.direction ? `<span class="dir-chip">${item.direction}</span>` : '';
+      const louverChip = item.louverType ? `<span class="dir-chip">${item.louverType}</span>` : '';
       return `<div class="ec-product-group">
-        <div class="ec-product-name">${item.product} ${dirChip}</div>
+        <div class="ec-product-name">${item.product} ${louverChip}${dirChip}</div>
         <div class="ec-chips">${chips}</div>
       </div>`;
     }).join('');
@@ -893,23 +962,6 @@ function renderEntries() {
       ${e.notes ? `<div class="ec-notes">📝 ${e.notes}</div>` : ''}
     </div>`;
   }).join('');
-}
-
-// ── CSV ──
-function exportCSV() {
-  const entries = JSON.parse(localStorage.getItem('si_measurements') || '[]');
-  if (!entries.length) { showToast('No entries to export'); return; }
-  const headers = ['Date','Time','TeamMember','Location','Customer','Phone','GPSLink','Product','Direction','OpeningNo','MeasNo','Width','Middle','Height','Measurement','Notes'];
-  const csv = [headers.join(','),
-    ...entries.flatMap(e => buildRows(e).map(r =>
-      headers.map(h => `"${(r[h]||'').toString().replace(/"/g,'""')}"`).join(',')
-    ))
-  ].join('\n');
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
-  a.download = `SmartInteriors_${new Date().toISOString().split('T')[0]}.csv`;
-  a.click();
-  showToast('CSV downloaded!');
 }
 
 // ── TOAST ──
