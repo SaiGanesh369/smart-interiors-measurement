@@ -844,44 +844,20 @@ function copySummary() {
 }
 
 // ── SEND TO SHEETS ──
-// JSONP via script tag injection — works on ALL browsers mobile + desktop
-// No CORS, no fetch, no iframe — script tags are never blocked
-function sendToSheets(url, rows) {
-  return new Promise((resolve) => {
-    try {
-      const cbName = 'si_cb_' + Date.now();
-      const payload = encodeURIComponent(JSON.stringify({rows: rows}));
-      const fullUrl = url + '?data=' + payload + '&callback=' + cbName;
-
-      // Cleanup function
-      const cleanup = () => {
-        try {
-          delete window[cbName];
-          const el = document.getElementById(cbName);
-          if (el) el.remove();
-        } catch(e) {}
-        resolve();
-      };
-
-      // JSONP callback
-      window[cbName] = cleanup;
-
-      // Inject script tag
-      const script = document.createElement('script');
-      script.id = cbName;
-      script.src = fullUrl;
-      script.onload = cleanup;
-      script.onerror = cleanup;
-      document.head.appendChild(script);
-
-      // Timeout fallback
-      setTimeout(cleanup, 10000);
-
-    } catch(err) {
-      console.error('sendToSheets error:', err);
-      resolve();
-    }
-  });
+// Sends to Netlify Function which forwards to Google Sheets
+// This bypasses all mobile CORS/redirect issues completely
+async function sendToSheets(url, rows) {
+  try {
+    const response = await fetch('/.netlify/functions/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({rows: rows})
+    });
+    const result = await response.json();
+    console.log('Sheets result:', result);
+  } catch(err) {
+    console.error('sendToSheets error:', err);
+  }
 }
 
 // ── SHEET ROWS ──
