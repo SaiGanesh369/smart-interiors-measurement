@@ -844,34 +844,27 @@ function copySummary() {
 }
 
 // ── SEND TO SHEETS ──
-// Tries 3 methods in sequence — works on mobile and laptop
-async function sendToSheets(url, rows) {
-  const payload = JSON.stringify({rows: rows});
-
-  // Method 1: FormData POST (works on most mobile browsers)
-  try {
-    const fd = new FormData();
-    fd.append('data', payload);
-    await fetch(url, { method:'POST', mode:'no-cors', body: fd });
-    return; // if no error, assume success
-  } catch(e1) { console.log('Method 1 failed:', e1); }
-
-  // Method 2: URL-encoded POST
-  try {
-    const body = 'data=' + encodeURIComponent(payload);
-    await fetch(url, {
-      method:'POST', mode:'no-cors',
-      headers:{'Content-Type':'application/x-www-form-urlencoded'},
-      body: body
-    });
-    return;
-  } catch(e2) { console.log('Method 2 failed:', e2); }
-
-  // Method 3: GET with data in URL param (laptop fallback)
-  try {
-    const encoded = encodeURIComponent(payload);
-    await fetch(url + '?data=' + encoded, { method:'GET', mode:'no-cors' });
-  } catch(e3) { console.log('Method 3 failed:', e3); }
+// Uses Image pixel trick — most reliable method across all mobile/desktop browsers
+// Apps Script receives GET request with data param and saves to sheet
+function sendToSheets(url, rows) {
+  return new Promise((resolve) => {
+    try {
+      const payload = encodeURIComponent(JSON.stringify({rows: rows}));
+      const fullUrl = url + '?data=' + payload;
+      
+      // Image pixel method — bypasses CORS completely on all devices
+      const img = new Image();
+      img.onload = () => resolve();
+      img.onerror = () => resolve(); // resolve even on error — data still sent
+      img.src = fullUrl;
+      
+      // Timeout fallback
+      setTimeout(resolve, 8000);
+    } catch(err) {
+      console.error('sendToSheets error:', err);
+      resolve();
+    }
+  });
 }
 
 // ── SHEET ROWS ──
