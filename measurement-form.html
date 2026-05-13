@@ -7,7 +7,7 @@
 <script>
 // ════════════════════════════════════════
 // CONFIG — UPDATE THESE TWO LINES ONLY
-const SHEETS_URL   = 'https://script.google.com/macros/s/AKfycbzSECbcvDjCP7SFPJa6IbLiRT29PJ-H3r2sKIHrvL7gAogwqe5OwFeiKdnd3M7mK9Pv8w/exec';
+const SHEETS_URL   = 'https://script.google.com/macros/s/AKfycby5338zmo3YatyvVVjs-Ozd4Sr8BvChpm7Xklc_mWjHzpVUMbVUUjdF69Z6hqCeQWyArA/exec';
 const WHATSAPP_URL = 'https://chat.whatsapp.com/KPQXS3b220vENMV9MCZQro';
 const DRIVE_FOLDER_ID = '1JrM2s4dJ8oWK4SuJuiaV_H4gzCbnLtuJ';
 // ════════════════════════════════════════
@@ -1144,25 +1144,28 @@ async function sendToSheets(url, rows) {
   }
 }
 
-// ── SHEET ROWS — now includes photo links as clickable URLs ──
+// ── SHEET ROWS — one row per measurement, photo link on every row ──
+// Why option 1: keeps full column structure for analysis in Sheets
+// Photo is copied to all rows so it's always accessible regardless of which row is viewed
 function buildRows(entry) {
   const rows = [];
   const d = new Date(entry.timestamp);
   const time = d.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
-  // Photo links: join all Drive URLs separated by newline for the cell
+
+  // Photo links — same value repeated on every row of this entry
   const photoCell = (entry.photoLinks && entry.photoLinks.length)
-    ? entry.photoLinks.join('\n')
-    : '';
+    ? entry.photoLinks.join('\n') : '';
 
   entry.items.forEach((item, ii) => {
     item.measurements.forEach((m, mi) => {
       const isPVC = item.product === 'PVC Door';
       const meas = isPVC
         ? (m.bottom && m.bottom !== '—'
-            ? `H:${m.h} x Top:${m.top} x Bottom:${m.bottom}`
-            : `H:${m.h} x Top:${m.top}`)
-        : `H:${m.h} x W:${m.w}`;
-      const productLabel = item.louverType ? `${item.product} (${item.louverType})` : item.product;
+            ? 'H:' + m.h + ' x Top:' + m.top + ' x Bottom:' + m.bottom
+            : 'H:' + m.h + ' x Top:' + m.top)
+        : 'H:' + m.h + ' x W:' + m.w;
+      const productLabel = item.louverType
+        ? item.product + ' (' + item.louverType + ')' : item.product;
       rows.push({
         Date: entry.date, Time: time,
         TeamMember: entry.worker, Location: entry.location,
@@ -1170,14 +1173,14 @@ function buildRows(entry) {
         GPSLink: entry.gpsLink,
         Product: productLabel,
         Direction: item.direction || '—',
-        OpeningNo: ii+1, MeasNo: mi+1,
+        OpeningNo: ii + 1, MeasNo: mi + 1,
         Height: m.h,
         Width: isPVC ? '—' : m.w,
         Top: isPVC ? m.top : '—',
-        Bottom: isPVC ? m.bottom : '—',
+        Bottom: isPVC ? (m.bottom || '—') : '—',
         Measurement: meas,
-        Notes: mi===0 && ii===0 ? entry.notes : '',
-        Photos: mi===0 && ii===0 ? photoCell : ''
+        Notes: mi === 0 && ii === 0 ? entry.notes : '',
+        Photos: photoCell  // same link on every row
       });
     });
   });
@@ -1230,21 +1233,11 @@ async function loadEntriesFromSheets() {
 
 function renderSheetEntries(rows) {
   const list = document.getElementById('entries-list');
-  const grouped = {};
-  rows.forEach(row => {
-    const key = `${row.Date}_${row.Time}_${row.TeamMember}_${row.Location}`;
-    if (!grouped[key]) grouped[key] = { ...row, items: {} };
-    const itemKey = `${row.OpeningNo}_${row.Product}`;
-    if (!grouped[key].items[itemKey])
-      grouped[key].items[itemKey] = { product: row.Product, direction: row.Direction, measurements: [] };
-    grouped[key].items[itemKey].measurements.push({ meas: row.Measurement });
-  });
+  // rows already grouped into entries by getRecent — one object per entry
+  window._sheetEntries = rows;
+  if (!rows.length) { list.innerHTML = '<div class="no-entries">No entries found.</div>'; return; }
 
-  const entries = Object.values(grouped);
-  window._sheetEntries = entries;
-  if (!entries.length) { list.innerHTML = '<div class="no-entries">No entries found.</div>'; return; }
-
-  list.innerHTML = entries.map((e, idx) => {
+  list.innerHTML = rows.map((e, idx) => {
     const photoLinks = e.Photos ? e.Photos.split('\n').filter(Boolean) : [];
     const photoIndicator = photoLinks.length
       ? `<span style="color:var(--blue);font-size:0.72rem;">📷 ${photoLinks.length} photo(s)</span>` : '';
@@ -1255,7 +1248,7 @@ function renderSheetEntries(rows) {
       </div>
       <div class="ec-meta">📍 ${e.Location} · ${e.Customer || '—'}${e.Phone && e.Phone !== '—' ? ' · 📞 ' + e.Phone : ''}</div>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-top:5px;">
-        <span style="font-size:0.72rem;color:var(--muted);">${Object.keys(e.items).length} product(s) · ${Object.values(e.items).reduce((s,i)=>s+i.measurements.length,0)} measurement(s)</span>
+        <span style="font-size:0.72rem;color:var(--muted);">${e.Products || ''}</span>
         ${photoIndicator}
       </div>
       <div class="ec-tap-hint">Tap to view details →</div>
@@ -1267,35 +1260,34 @@ function openEntryModal(idx) {
   const e = window._sheetEntries && window._sheetEntries[idx];
   if (!e) return;
 
-  // Build summary text
+  // Build summary from flat single-row structure
   const lines = [];
   lines.push('📐 Smart Interiors — Site Measurement');
   lines.push('━━━━━━━━━━━━━━━━━━━━━');
-  lines.push(`📅 Date: ${e.Date}   🕐 Time: ${e.Time}`);
-  lines.push(`👤 Team Member: ${e.TeamMember}`);
-  lines.push(`📍 Location: ${e.Location}`);
-  if (e.GPSLink && e.GPSLink !== '—') lines.push(`🗺 Directions: ${e.GPSLink}`);
-  if (e.Customer && e.Customer !== '—') lines.push(`🏠 Customer: ${e.Customer}`);
-  if (e.Phone && e.Phone !== '—') lines.push(`📞 Phone: ${e.Phone}`);
+  lines.push('📅 Date: ' + e.Date + '   🕐 Time: ' + e.Time);
+  lines.push('👤 Team Member: ' + e.TeamMember);
+  lines.push('📍 Location: ' + e.Location);
+  if (e.GPSLink && e.GPSLink !== '—') lines.push('🗺 Directions: ' + e.GPSLink);
+  if (e.Customer && e.Customer !== '—') lines.push('🏠 Customer: ' + e.Customer);
+  if (e.Phone && e.Phone !== '—') lines.push('📞 Phone: ' + e.Phone);
   lines.push('━━━━━━━━━━━━━━━━━━━━━');
-  Object.values(e.items || {}).forEach(item => {
-    const dirStr = item.direction && item.direction !== '—' ? ` (${item.direction})` : '';
-    lines.push(`\n🪟 ${item.product}${dirStr}`);
-    item.measurements.forEach((m, mi) => lines.push(`  ${mi+1}. ${m.meas}`));
-  });
-  if (e.Notes) lines.push(`\n📝 Notes: ${e.Notes}`);
+  // Measurements stored as compact summary — split by || for each product block
+  if (e.Measurements) {
+    e.Measurements.split(' || ').forEach(block => lines.push('\n🪟 ' + block.trim()));
+  }
+  if (e.Notes) lines.push('\n📝 Notes: ' + e.Notes);
   lines.push('\n━━━━━━━━━━━━━━━━━━━━━');
 
   document.getElementById('modal-summary').textContent = lines.join('\n');
-  document.getElementById('modal-title').textContent = `${e.TeamMember} · ${e.Date}`;
+  document.getElementById('modal-title').textContent = e.TeamMember + ' · ' + e.Date;
 
-  // Photos
+  // Photos — newline-separated Drive links stored in cell note
   const photoLinks = e.Photos ? e.Photos.split('\n').filter(Boolean) : [];
   const photosSection = document.getElementById('modal-photos');
   const photoLinksEl = document.getElementById('modal-photo-links');
   if (photoLinks.length) {
     photoLinksEl.innerHTML = photoLinks.map((link, i) =>
-      `<a class="modal-photo-link" href="${link}" target="_blank">🖼 View Photo ${i + 1}</a>`
+      '<a class="modal-photo-link" href="' + link + '" target="_blank">🖼 View Photo ' + (i+1) + '</a>'
     ).join('');
     photosSection.style.display = 'block';
   } else {
@@ -1305,6 +1297,7 @@ function openEntryModal(idx) {
   document.getElementById('entry-modal').classList.add('active');
   document.body.style.overflow = 'hidden';
 }
+
 
 function closeModal() {
   document.getElementById('entry-modal').classList.remove('active');
