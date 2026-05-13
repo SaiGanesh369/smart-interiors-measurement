@@ -60,12 +60,16 @@ exports.handler = async (event) => {
       const links = [];
       for (const photo of (photos || [])) {
         try {
-          const res = await callAppsScript({
+          // Send explicit payload — avoid spread which can cause key conflicts
+          const payload = {
             action: 'uploadPhotos',
-            entryId,
-            folderId,
+            entryId: entryId,
+            folderId: folderId,
             photos: [photo]
-          });
+          };
+          console.log('Sending to Apps Script:', JSON.stringify({ action: payload.action, entryId: payload.entryId, photoCount: payload.photos.length, dataLength: photo.data ? photo.data.length : 0 }));
+          const res = await callAppsScript(payload);
+          console.log('Apps Script response:', JSON.stringify(res));
           console.log('Photo upload response:', JSON.stringify(res));
           if (res.links && res.links[0]) links.push(res.links[0]);
         } catch(e) {
