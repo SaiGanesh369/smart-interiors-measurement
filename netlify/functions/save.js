@@ -1,5 +1,67 @@
 const https = require('https');
+const http = require('http');
 const url = require('url');
+
+// Follow redirects manually — Google Apps Script always redirects
+function fetchWithRedirects(requestUrl, maxRedirects = 5) {
+  return new Promise((resolve, reject) => {
+    const makeRequest = (currentUrl, redirectsLeft) => {
+      const parsed = url.parse(currentUrl);
+      const lib = parsed.protocol === 'https:' ? https : http;
+
+      const options = {
+        hostname: parsed.hostname,
+        path: parsed.path,
+        method: 'GET',
+        headers: {
+          'User-Agent': 'SmartInteriors/1.0',
+          'Accept': '*/*'
+        }
+      };
+
+      const req = lib.request(options, (res) => {
+        console.log(`Status: ${res.statusCode} for ${currentUrl.substring(0, 80)}`);
+
+        // Follow redirect
+        if ([301, 302, 303, 307, 308].includes(res.statusCode) && res.headers.location) {
+          if (redirectsLeft === 0) {
+            reject(new Error('Too many redirects'));
+            return;
+          }
+          const nextUrl = res.headers.location.startsWith('http')
+            ? res.headers.location
+            : `${parsed.protocol}//${parsed.hostname}${res.headers.location}`;
+          console.log('Redirecting to:', nextUrl.substring(0, 80));
+          // Consume response body
+          res.resume();
+          makeRequest(nextUrl, redirectsLeft - 1);
+          return;
+        }
+
+        let data = '';
+        res.on('data', chunk => { data += chunk; });
+        res.on('end', () => {
+          console.log('Final response:', data.substring(0, 200));
+          resolve({statusCode: res.statusCode, body: data});
+        });
+      });
+
+      req.on('error', (err) => {
+        console.error('Request error:', err.toString());
+        reject(err);
+      });
+
+      req.setTimeout(15000, () => {
+        req.destroy();
+        reject(new Error('Request timeout'));
+      });
+
+      req.end();
+    };
+
+    makeRequest(requestUrl, maxRedirects);
+  });
+}
 
 exports.handler = async function(event, context) {
   const headers = {
@@ -28,43 +90,32 @@ exports.handler = async function(event, context) {
     }
 
     const SHEETS_URL = process.env.SHEETS_URL;
+    if (!SHEETS_URL) {
+      return {
+        statusCode: 500, headers,
+        body: JSON.stringify({status: 'error', message: 'SHEETS_URL env variable not set'})
+      };
+    }
+
     const encoded = encodeURIComponent(JSON.stringify({rows}));
     const fullUrl = `${SHEETS_URL}?data=${encoded}`;
+    console.log('Calling:', fullUrl.substring(0, 100));
 
-    // Use built-in https module — no external dependencies needed
-    await new Promise((resolve) => {
-      const parsedUrl = url.parse(fullUrl);
-
-      const req = https.request({
-        hostname: parsedUrl.hostname,
-        path: parsedUrl.path,
-        method: 'GET',
-        headers: { 'User-Agent': 'SmartInteriors/1.0' }
-      }, (res) => {
-        let data = '';
-        res.on('data', chunk => { data += chunk; });
-        res.on('end', () => {
-          console.log('Sheets status:', res.statusCode);
-          console.log('Sheets response:', data.substring(0, 200));
-          resolve();
-        });
-      });
-
-      req.on('error', (err) => {
-        console.error('HTTPS error:', err.toString());
-        resolve();
-      });
-
-      req.end();
-    });
+    const result = await fetchWithRedirects(fullUrl);
+    console.log('Result status:', result.statusCode);
+    console.log('Result body:', result.body.substring(0, 200));
 
     return {
       statusCode: 200, headers,
-      body: JSON.stringify({status: 'success'})
+      body: JSON.stringify({
+        status: 'success',
+        sheetsStatus: result.statusCode,
+        sheetsResponse: result.body.substring(0, 100)
+      })
     };
 
   } catch(err) {
-    console.error('Handler error:', err);
+    console.error('Handler error:', err.toString());
     return {
       statusCode: 500, headers,
       body: JSON.stringify({status: 'error', message: err.toString()})
