@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Smart Interiors – Measurement Entry</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;600;800&family=Noto+Sans:wght@400;600&display=swap');
+
+  :root {
+    --orange: #FF6B00;
+    --bg: #F4F6FA;
+    --text: #1A1A2E;
+    --muted: #7A7A9D;
+    --border: #E0E4EF;
+    --green: #22C55E;
+    --red: #EF4444;
+    --blue: #3B82F6;
+  }
+
+  * { box-sizing:border-box; margin:0; padding:0; }
+
+  body {
+    font-family:'Noto Sans',sans-serif;
+    background:var(--bg); color:var(--text);
+    min-height:100vh; padding-bottom:60px;
+  }
+
+  header {
+    background:var(--orange); color:white;
+    padding:16px 20px 12px; text-align:center;
+    position:sticky; top:0; z-index:100;
+    box-shadow:0 2px 12px rgba(255,107,0,0.3);
+  }
+  header h1 { font-family:'Baloo 2',cursive; font-size:1.35rem; font-weight:800; }
+  header p  { font-size:0.72rem; opacity:0.88; margin-top:2px; }
+
+  .container { max-width:480px; margin:0 auto; padding:14px; }
+
+  .card {
+    background:white; border-radius:16px; padding:18px;
+    margin-bottom:12px; box-shadow:0 2px 8px rgba(0,0,0,0.06);
+    border:1.5px solid var(--border);
+  }
+  .card-title {
+    font-family:'Baloo 2',cursive; font-size:0.95rem; font-weight:800;
+    color:var(--orange); margin-bottom:14px;
+    display:flex; align-items:center; gap:8px;
+  }
+
+  label {
+    display:block; font-size:0.75rem; font-weight:600;
+    color:var(--muted); text-transform:uppercase;
+    letter-spacing:0.5px; margin-bottom:5px; margin-top:12px;
+  }
+  label:first-of-type { margin-top:0; }
+
+  select, input[type="text"], input[type="date"],
+  input[type="tel"], textarea {
+    width:100%; padding:12px 13px;
+    border:1.5px solid var(--border); border-radius:10px;
+    font-size:1rem; font-family:'Noto Sans',sans-serif;
+    background:#FAFBFF; color:var(--text);
+    transition:border-color 0.2s;
+    -webkit-appearance:none; appearance:none;
+  }
+  select:focus,input:focus,textarea:focus {
+    outline:none; border-color:var(--orange); background:white;
+  }
+  select {
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23FF6B00' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat:no-repeat; background-position:right 13px center; padding-right:34px;
+  }
+  textarea { resize:vertical; min-height:65px; font-size:0.92rem; }
+
+  /* GPS bar */
+  .gps-bar {
+    display:flex; align-items:center; gap:8px;
+    background:#F0F7FF; border:1.5px solid #BFDBFE;
+    border-radius:10px; padding:10px 12px; margin-top:10px;
+  }
+  .gps-icon { font-size:1.1rem; flex-shrink:0; }
+  .gps-text { flex:1; font-size:0.78rem; color:var(--blue); line-height:1.4; }
+  .gps-text strong { display:block; font-size:0.8rem; }
+  .btn-gps {
+    background:var(--blue); color:white; border:none;
+    border-radius:8px; padding:7px 12px; font-size:0.75rem;
+    font-weight:700; cursor:pointer; flex-shrink:0;
+    font-family:'Baloo 2',cursive;
+  }
+  .gps-status { font-size:0.72rem; margin-top:6px; color:var(--muted); line-height:1.5; }
+  .gps-status.ok  { color:var(--green); }
+  .gps-status.err { color:var(--red); }
+  .gps-status.warn { color:#D97706; }
+
+  /* Items */
+  .items-list { display:flex; flex-direction:column; gap:12px; margin-top:4px; }
+  .item-block { background:#F8F9FF; border:1.5px solid var(--border); border-radius:14px; overflow:hidden; }
+  .item-header {
+    background:linear-gradient(90deg,#FFF0E6,#FFF7F2);
+    padding:10px 14px; display:flex; justify-content:space-between; align-items:center;
+    border-bottom:1.5px solid #FFE0C8;
+  }
+  .item-label {
+    font-family:'Baloo 2',cursive; font-weight:800;
+    font-size:0.82rem; color:var(--orange); text-transform:uppercase; letter-spacing:0.4px;
+  }
+  .btn-remove-item {
+    background:none; border:1.5px solid var(--red); color:var(--red);
+    border-radius:7px; padding:3px 10px; font-size:0.72rem; font-weight:700; cursor:pointer;
+  }
+  .item-body { padding:12px 14px; }
+  .direction-row { margin-top:10px; display:none; }
+
+  /* Meas rows */
+  .meas-rows { display:flex; flex-direction:column; gap:8px; }
+  .meas-row { display:flex; align-items:flex-start; gap:6px; margin-top:4px; }
+  .meas-num {
+    font-family:'Baloo 2',cursive; font-weight:800; font-size:0.75rem;
+    color:var(--muted); min-width:18px; text-align:center; padding-top:14px;
+  }
+  .meas-fields { flex:1; }
+  .meas-grid-2 { display:grid; grid-template-columns:1fr 20px 1fr; align-items:center; gap:4px; }
+  .meas-grid-3 { display:grid; grid-template-columns:1fr 14px 1fr 14px 1fr; align-items:center; gap:4px; }
+  .meas-grid-2 input, .meas-grid-3 input {
+    text-align:center; font-size:0.95rem; font-weight:600; padding:11px 6px;
+  }
+  /* highlight measurement inputs so workers know these are special */
+  .meas-grid-2 input, .meas-grid-3 input {
+    background:#FFFBF7; border-color:#FFD4B0;
+  }
+  .meas-grid-2 input:focus, .meas-grid-3 input:focus {
+    background:white; border-color:var(--orange);
+  }
+  .meas-sep { text-align:center; font-size:1rem; font-weight:800; color:var(--muted); }
+  .meas-labels { display:grid; gap:4px; margin-top:3px; }
+  .meas-labels-2 { grid-template-columns:1fr 20px 1fr; }
+  .meas-labels-3 { grid-template-columns:1fr 14px 1fr 14px 1fr; }
+  .fl { font-size:0.62rem; color:var(--muted); font-weight:600; text-transform:uppercase; text-align:center; }
+  .fl-x { visibility:hidden; }
+  .btn-del-meas { background:none; border:none; color:#CCC; font-size:1.1rem; cursor:pointer; padding:4px; margin-top:8px; }
+  .btn-del-meas:active { color:var(--red); }
+  .btn-add-meas {
+    width:100%; margin-top:8px; padding:9px; border:1.5px dashed #CCC;
+    background:white; color:var(--muted); border-radius:9px;
+    font-size:0.82rem; font-weight:700; font-family:'Baloo 2',cursive; cursor:pointer;
+  }
+  .btn-add-item {
+    width:100%; margin-top:6px; padding:14px; border:2px dashed var(--orange);
+    background:#FFF7F2; color:var(--orange); border-radius:13px;
+    font-size:0.95rem; font-weight:700; font-family:'Baloo 2',cursive; cursor:pointer;
+  }
+  .btn-add-item:active { background:#FFE5D0; }
+
+  /* fraction helper */
+  .fraction-helper {
+    background:#FFF7F2; border:1.5px solid #FFD4B0;
+    border-radius:10px; padding:11px 13px; margin-top:12px;
+  }
+  .fh-title { font-size:0.72rem; font-weight:700; color:var(--orange); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.4px; }
+  .fraction-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:5px; }
+  .frac-btn { background:white; border:1.5px solid #FFD4B0; border-radius:7px; padding:7px 4px; text-align:center; cursor:pointer; }
+  .frac-btn:active { background:var(--orange); color:white; border-color:var(--orange); }
+  .frac-sym { font-size:0.95rem; font-weight:700; display:block; }
+  .frac-dec { font-size:0.62rem; color:var(--muted); display:block; margin-top:1px; }
+  .frac-hint { font-size:0.7rem; color:var(--muted); margin-top:7px; line-height:1.5; }
+
+  /* slash indicator badge on focused meas input */
+  .slash-tip {
+    font-size:0.68rem; color:var(--orange); text-align:center;
+    margin-top:3px; display:none; font-weight:600;
+  }
+
+  .btn-submit {
+    width:100%; padding:16px; background:var(--orange); color:white;
+    border:none; border-radius:14px; font-size:1.05rem; font-weight:800;
+    font-family:'Baloo 2',cursive; cursor:pointer;
+    box-shadow:0 4px 18px rgba(255,107,0,0.32); margin-top:4px;
+  }
+
+  /* success */
+  .success-screen { display:none; padding:16px 0; }
+  .success-top { text-align:center; padding:16px; }
+  .success-icon { font-size:3rem; display:block; margin-bottom:10px; }
+  .success-screen h2 { font-family:'Baloo 2',cursive; font-size:1.4rem; color:var(--green); margin-bottom:6px; }
+  .success-screen .sub { color:var(--muted); font-size:0.82rem; line-height:1.5; margin-bottom:14px; }
+
+  .wa-box {
+    background:#E7F8EE; border:1.5px solid #86EFAC;
+    border-radius:14px; padding:16px; margin-bottom:14px;
+  }
+  .wa-title {
+    font-family:'Baloo 2',cursive; font-weight:800; color:#15803D;
+    font-size:0.9rem; margin-bottom:10px; display:flex; align-items:center; gap:6px;
+  }
+  .wa-summary {
+    background:white; border-radius:10px; padding:12px;
+    font-size:0.82rem; line-height:1.7; white-space:pre-wrap;
+    color:var(--text); border:1px solid #BBF7D0;
+    max-height:260px; overflow-y:auto; word-break:break-word;
+  }
+  .btn-copy {
+    width:100%; margin-top:10px; padding:12px; background:#25D366;
+    color:white; border:none; border-radius:10px;
+    font-family:'Baloo 2',cursive; font-size:0.95rem; font-weight:800; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; gap:8px;
+  }
+  .copy-confirm { text-align:center; font-size:0.75rem; color:#15803D; margin-top:6px; display:none; }
+
+  .success-actions { display:flex; gap:8px; padding:0 0 8px; }
+  .btn-new, .btn-export {
+    flex:1; padding:13px 10px; border-radius:12px;
+    font-family:'Baloo 2',cursive; font-size:0.88rem;
+    font-weight:700; border:none; cursor:pointer; color:white;
+  }
+  .btn-new { background:var(--orange); }
+  .btn-export { background:var(--blue); }
+
+  .data-toggle { text-align:center; margin-top:10px; }
+  .data-toggle button {
+    background:none; border:1.5px solid var(--border); color:var(--muted);
+    padding:8px 18px; border-radius:20px; font-size:0.78rem; font-weight:600; cursor:pointer; margin:3px;
+  }
+  #data-panel { display:none; margin-top:14px; }
+
+  .entry-card {
+    background:white; border-radius:12px; padding:13px;
+    margin-bottom:10px; border:1.5px solid var(--border); font-size:0.83rem;
+  }
+  .ec-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
+  .ec-worker { font-weight:700; color:var(--orange); font-family:'Baloo 2',cursive; }
+  .ec-date { font-size:0.7rem; color:var(--muted); }
+  .ec-meta { color:var(--muted); font-size:0.76rem; margin-bottom:8px; line-height:1.7; }
+  .ec-map-link { color:var(--blue); font-size:0.75rem; text-decoration:none; }
+  .ec-product-group { margin-bottom:8px; }
+  .ec-product-name { font-weight:700; font-size:0.78rem; margin-bottom:4px; text-transform:uppercase; }
+  .ec-chips { display:flex; flex-wrap:wrap; gap:5px; }
+  .meas-chip {
+    background:#FFF0E6; border:1px solid #FFD4B0; color:var(--text);
+    border-radius:6px; padding:4px 9px; font-size:0.8rem; font-weight:600; font-family:monospace;
+  }
+  .dir-chip {
+    background:#EFF6FF; border:1px solid #BFDBFE; color:var(--blue);
+    border-radius:6px; padding:3px 8px; font-size:0.75rem; font-weight:700;
+  }
+  .ec-notes { margin-top:7px; font-size:0.75rem; color:var(--muted); border-top:1px solid var(--border); padding-top:6px; }
+  .no-entries { text-align:center; color:var(--muted); padding:20px; font-size:0.83rem; }
+
+  .required-star { color:var(--red); margin-left:2px; }
+  .error-msg { color:var(--red); font-size:0.75rem; margin-top:4px; display:none; }
+  .field-error { border-color:var(--red) !important; }
+
+  .sheets-banner {
+    background:#E8F5E9; border:1.5px solid #A5D6A7; border-radius:12px;
+    padding:12px 14px; margin-bottom:12px; font-size:0.8rem; color:#2E7D32; line-height:1.5;
+  }
+  .sheets-banner strong { display:block; margin-bottom:4px; }
+  .sheets-banner input { margin-top:6px; font-size:0.85rem; padding:9px 11px; border-color:#A5D6A7; }
+
+  .info-box {
+    background:#FFF7ED; border:1.5px solid #FED7AA; border-radius:10px;
+    padding:10px 13px; font-size:0.75rem; color:#92400E; line-height:1.6; margin-top:8px;
+  }
+  .info-box strong { display:block; margin-bottom:2px; color:#C2410C; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>📐 Smart Interiors</h1>
+  <p>Site Measurement Entry</p>
+</header>
+
+<div class="container">
+  <div id="form-section">
+
+    <div class="sheets-banner">
+      <strong>📊 Google Sheets Auto-Sync</strong>
+      Paste your Google Apps Script URL once — every entry saves to your sheet automatically.
+      <input type="text" id="sheets-url" placeholder="https://script.google.com/macros/s/...">
+    </div>
+
+    <!-- Site info -->
+    <div class="card">
+      <div class="card-title">👤 Team Member & Site Info</div>
+
+      <label>Team Member <span class="required-star">*</span></label>
+      <select id="worker">
+        <option value="">-- Select --</option>
+        <option>Raju</option>
+        <option>Vasu</option>
+        <option>Dad</option>
+        <option>Akash</option>
+      </select>
+      <div class="error-msg" id="err-worker">Please select team member</div>
+
+      <label>Date <span class="required-star">*</span></label>
+      <input type="date" id="date">
+
+      <label>Location / Area Name <span class="required-star">*</span></label>
+      <input type="text" id="location" placeholder="e.g. Sainagar, Plot No. 12">
+      <div class="error-msg" id="err-location">Please enter location name</div>
+
+      <!-- GPS -->
+      <div class="gps-bar">
+        <span class="gps-icon">📍</span>
+        <div class="gps-text">
+          <strong>GPS Location</strong>
+          Saves exact pin — anyone can tap for directions later
+        </div>
+        <button class="btn-gps" onclick="captureGPS()">Capture</button>
+      </div>
+      <div class="gps-status" id="gps-status">Not captured yet</div>
+      <div id="gps-info-box" style="display:none;" class="info-box">
+        <strong>⚠️ GPS needs https:// to work</strong>
+        You are opening this file directly from phone storage (file://). 
+        GPS location only works when the file is hosted online.<br><br>
+        <strong>Fix (free, 2 minutes):</strong><br>
+        1. Go to github.com → create free account<br>
+        2. New repository → upload this HTML file<br>
+        3. Settings → Pages → enable<br>
+        4. Share the https:// link in your WhatsApp group<br><br>
+        GPS will work automatically after that.
+      </div>
+
+      <label>Customer Name</label>
+      <input type="text" id="customer" placeholder="Can update later if unknown">
+
+      <label>Customer Phone</label>
+      <input type="tel" id="phone" placeholder="e.g. 98765 43210">
+    </div>
+
+    <!-- Products -->
+    <div class="card">
+      <div class="card-title">🪟 Products & Measurements</div>
+      <p style="font-size:0.78rem;color:var(--muted);margin-bottom:12px;line-height:1.5;">
+        Select product first, then add measurements. Mix different products in one job.
+      </p>
+      <div class="items-list" id="items-list"></div>
+      <button class="btn-add-item" onclick="addItem()">+ Add Product / Opening</button>
+
+      <div class="fraction-helper">
+        <div class="fh-title">⚡ Quick Fractions</div>
+        <div class="fraction-grid">
+          <div class="frac-btn" onclick="ins('1/8')"><span class="frac-sym">⅛</span><span class="frac-dec">1/8</span></div>
+          <div class="frac-btn" onclick="ins('1/4')"><span class="frac-sym">¼</span><span class="frac-dec">1/4</span></div>
+          <div class="frac-btn" onclick="ins('3/8')"><span class="frac-sym">⅜</span><span class="frac-dec">3/8</span></div>
+          <div class="frac-btn" onclick="ins('1/2')"><span class="frac-sym">½</span><span class="frac-dec">1/2</span></div>
+          <div class="frac-btn" onclick="ins('5/8')"><span class="frac-sym">⅝</span><span class="frac-dec">5/8</span></div>
+          <div class="frac-btn" onclick="ins('3/4')"><span class="frac-sym">¾</span><span class="frac-dec">3/4</span></div>
+          <div class="frac-btn" onclick="ins('7/8')"><span class="frac-sym">⅞</span><span class="frac-dec">7/8</span></div>
+          <div class="frac-btn" onclick="ins('1/16')"><span class="frac-sym">¹⁄₁₆</span><span class="frac-dec">1/16</span></div>
+        </div>
+        <div class="frac-hint">
+          💡 <strong>Auto-slash:</strong> Type the whole number and space, then the numerator and space → slash appears automatically.<br>
+          Example: type <strong>47</strong> <strong>space</strong> <strong>1</strong> <strong>space</strong> → becomes <strong>47 1/</strong> → type <strong>4</strong> → <strong>47 1/4</strong> ✓<br>
+          Or just tap the fraction buttons above after tapping a box.
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📝 Notes</div>
+      <textarea id="notes" placeholder="e.g. Left wall uneven, white color, mosquito mesh needed..."></textarea>
+    </div>
+
+    <button class="btn-submit" onclick="submitForm()">✅ Save & Sync to Sheets</button>
+
+    <div class="data-toggle">
+      <button onclick="toggleData()">📋 View Saved Entries</button>
+      <button onclick="exportCSV()">⬇️ Download CSV</button>
+    </div>
+    <div id="data-panel"><div id="entries-list"></div></div>
+  </div>
+
+  <!-- SUCCESS -->
+  <div class="success-screen" id="success-screen">
+    <div class="success-top">
+      <span class="success-icon">✅</span>
+      <h2>Saved!</h2>
+      <p class="sub" id="success-detail"></p>
+    </div>
+    <div class="wa-box">
+      <div class="wa-title">💬 WhatsApp Summary</div>
+      <div class="wa-summary" id="wa-summary"></div>
+      <button class="btn-copy" onclick="copySummary()">📋 Copy & Paste into WhatsApp</button>
+      <div class="copy-confirm" id="copy-confirm">✓ Copied! Open WhatsApp and paste.</div>
+    </div>
+    <div class="success-actions">
+      <button class="btn-new" onclick="resetForm()">+ New Entry</button>
+      <button class="btn-export" onclick="exportCSV()">⬇️ CSV</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── STATE ──
+let itemCount = 0;
+let lastFocused = null;
+let capturedLat = null;
+let capturedLng = null;
+
+const PRODUCTS = ['-- Select Product --','UPVC Window','Aluminium Window','UPVC Door','Aluminium Door','PVC Door','WPC Door','Wood Door','Aluminium Partition','Other'];
+const DIRECTIONS = ['-- Door Direction --','RI — Right In','RO — Right Out','LI — Left In','LO — Left Out'];
+
+// Init
+document.getElementById('date').value = new Date().toISOString().split('T')[0];
+const savedUrl = localStorage.getItem('si_sheets_url') || '';
+document.getElementById('sheets-url').value = savedUrl;
+document.getElementById('sheets-url').addEventListener('change', e => {
+  localStorage.setItem('si_sheets_url', e.target.value.trim());
+});
+addItem();
+
+// ── GPS ──
+function captureGPS() {
+  const status = document.getElementById('gps-status');
+  const infoBox = document.getElementById('gps-info-box');
+
+  // Detect file:// protocol — GPS won't work
+  if (window.location.protocol === 'file:') {
+    status.className = 'gps-status err';
+    status.textContent = '✗ GPS blocked — file:// link detected';
+    infoBox.style.display = 'block';
+    return;
+  }
+
+  infoBox.style.display = 'none';
+
+  if (!navigator.geolocation) {
+    status.className = 'gps-status err';
+    status.textContent = '✗ GPS not supported on this device';
+    return;
+  }
+
+  status.className = 'gps-status';
+  status.textContent = '📡 Getting location...';
+
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      capturedLat = pos.coords.latitude.toFixed(6);
+      capturedLng = pos.coords.longitude.toFixed(6);
+      status.className = 'gps-status ok';
+      status.textContent = `✓ Location saved: ${capturedLat}, ${capturedLng}`;
+    },
+    err => {
+      status.className = 'gps-status err';
+      let msg = '✗ Could not get location. ';
+      if (err.code === 1) msg += 'Please allow location permission in Chrome settings.';
+      else if (err.code === 2) msg += 'Location unavailable. Try outdoors.';
+      else msg += 'Request timed out. Try again.';
+      status.textContent = msg;
+    },
+    { enableHighAccuracy:true, timeout:12000, maximumAge:0 }
+  );
+}
+
+// ── AUTO-SLASH — robust version ──
+// Strategy: on every input event, check if value matches pattern
+// "DIGITS SPACE DIGITS SPACE" at the end — replace with "DIGITS SPACE DIGITS/"
+// This works on all keyboards including Android Gboard, Samsung, iOS
+function attachAutoSlash(input) {
+  let prevValue = '';
+
+  input.addEventListener('input', function() {
+    const val = this.value;
+    const cursorPos = this.selectionStart;
+
+    // Pattern: ends with "number space number space"
+    // e.g. "47 1 " or "47 3 " — insert slash before the last space's position
+    // More specifically: [digits][space][digits][space] at end
+    const match = val.match(/^(.*?)(\d+) (\d+) $/);
+    if (match) {
+      const newVal = match[1] + match[2] + ' ' + match[3] + '/';
+      this.value = newVal;
+      this.selectionStart = this.selectionEnd = newVal.length;
+    }
+    prevValue = this.value;
+  });
+
+  // Also handle keydown for space key explicitly (more reliable on some devices)
+  input.addEventListener('keydown', function(e) {
+    if (e.key !== ' ' && e.key !== 'Spacebar') return;
+    const val = this.value;
+    const cursor = this.selectionStart;
+    const before = val.substring(0, cursor);
+
+    // Pattern before cursor: digits space digits (no slash yet after these digits)
+    const m = before.match(/^(.*?)(\d+) (\d+)$/);
+    if (m && !before.includes('/')) {
+      e.preventDefault();
+      const newVal = m[1] + m[2] + ' ' + m[3] + '/';
+      this.value = newVal + val.substring(cursor);
+      this.selectionStart = this.selectionEnd = newVal.length;
+    }
+  });
+}
+
+// ── ADD ITEM ──
+function addItem() {
+  itemCount++;
+  const id = itemCount;
+  const list = document.getElementById('items-list');
+  const div = document.createElement('div');
+  div.className = 'item-block';
+  div.id = 'item-' + id;
+
+  div.innerHTML = `
+    <div class="item-header">
+      <span class="item-label">Opening ${id}</span>
+      <button class="btn-remove-item" onclick="removeItem(${id})">Remove</button>
+    </div>
+    <div class="item-body">
+      <label style="margin-top:0">Product Type *</label>
+      <select id="prod-${id}" onchange="onProdChange(${id})">
+        ${PRODUCTS.map(p => `<option value="${p==='-- Select Product --'?'':p}">${p}</option>`).join('')}
+      </select>
+      <div class="direction-row" id="dir-row-${id}">
+        <label>Door Direction *</label>
+        <select id="dir-${id}">
+          ${DIRECTIONS.map((d,i) => `<option value="${i===0?'':d.split(' ')[0]}">${d}</option>`).join('')}
+        </select>
+      </div>
+      <div id="meas-section-${id}" style="display:none; margin-top:10px;">
+        <label style="margin-top:0; margin-bottom:8px;">Measurements</label>
+        <div class="meas-rows" id="meas-rows-${id}"></div>
+        <button class="btn-add-meas" onclick="addMeasRow(${id})">+ Add Row</button>
+      </div>
+    </div>`;
+
+  list.appendChild(div);
+  setTimeout(() => div.scrollIntoView({behavior:'smooth',block:'center'}), 80);
+}
+
+function removeItem(id) {
+  document.getElementById('item-'+id)?.remove();
+}
+
+function onProdChange(id) {
+  const prod = document.getElementById('prod-'+id).value;
+  const dirRow = document.getElementById('dir-row-'+id);
+  const measSection = document.getElementById('meas-section-'+id);
+  const measRows = document.getElementById('meas-rows-'+id);
+  if (!prod) { dirRow.style.display='none'; measSection.style.display='none'; return; }
+  dirRow.style.display = prod==='PVC Door' ? 'block' : 'none';
+  measSection.style.display = 'block';
+  measRows.innerHTML = '';
+  addMeasRow(id);
+}
+
+// ── ADD MEAS ROW ──
+function addMeasRow(itemId) {
+  const prod = document.getElementById('prod-'+itemId).value;
+  const isPVC = prod === 'PVC Door';
+  const rows = document.getElementById('meas-rows-'+itemId);
+  const rowNum = rows.children.length + 1;
+  const rid = `${itemId}_${Date.now()}`;
+
+  const div = document.createElement('div');
+  div.className = 'meas-row';
+  div.id = 'mrow-'+rid;
+
+  if (isPVC) {
+    div.innerHTML = `
+      <span class="meas-num">${rowNum}</span>
+      <div class="meas-fields">
+        <div class="meas-grid-3">
+          <input type="text" id="mW-${rid}" placeholder="47 1/4" inputmode="text" onfocus="lastFocused=this" autocomplete="off" autocorrect="off" spellcheck="false">
+          <span class="meas-sep">×</span>
+          <input type="text" id="mM-${rid}" placeholder="4 1/2" inputmode="text" onfocus="lastFocused=this" autocomplete="off" autocorrect="off" spellcheck="false">
+          <span class="meas-sep">×</span>
+          <input type="text" id="mH-${rid}" placeholder="83" inputmode="text" onfocus="lastFocused=this" autocomplete="off" autocorrect="off" spellcheck="false">
+        </div>
+        <div class="meas-labels meas-labels-3">
+          <span class="fl">Width</span><span class="fl fl-x">×</span>
+          <span class="fl">Middle</span><span class="fl fl-x">×</span>
+          <span class="fl">Height</span>
+        </div>
+      </div>
+      <button class="btn-del-meas" onclick="delRow('${rid}',${itemId})">✕</button>`;
+  } else {
+    div.innerHTML = `
+      <span class="meas-num">${rowNum}</span>
+      <div class="meas-fields">
+        <div class="meas-grid-2">
+          <input type="text" id="mW-${rid}" placeholder="47 1/4" inputmode="text" onfocus="lastFocused=this" autocomplete="off" autocorrect="off" spellcheck="false">
+          <span class="meas-sep">×</span>
+          <input type="text" id="mH-${rid}" placeholder="43 3/8" inputmode="text" onfocus="lastFocused=this" autocomplete="off" autocorrect="off" spellcheck="false">
+        </div>
+        <div class="meas-labels meas-labels-2">
+          <span class="fl">Width</span><span class="fl fl-x">×</span><span class="fl">Height</span>
+        </div>
+      </div>
+      <button class="btn-del-meas" onclick="delRow('${rid}',${itemId})">✕</button>`;
+  }
+
+  rows.appendChild(div);
+
+  // Attach auto-slash + focus tracking to every measurement input in this row
+  div.querySelectorAll('input').forEach(inp => {
+    attachAutoSlash(inp);
+    inp.addEventListener('focus', () => { lastFocused = inp; });
+  });
+
+  setTimeout(() => div.scrollIntoView({behavior:'smooth',block:'nearest'}), 60);
+}
+
+function delRow(rid, itemId) {
+  document.getElementById('mrow-'+rid)?.remove();
+  const rows = document.getElementById('meas-rows-'+itemId);
+  rows && Array.from(rows.children).forEach((r,i) => {
+    const n = r.querySelector('.meas-num'); if(n) n.textContent = i+1;
+  });
+}
+
+// ── FRACTION BUTTONS ──
+function ins(frac) {
+  if (!lastFocused) { showToast('Tap a measurement box first'); return; }
+  const el = lastFocused, s = el.selectionStart, e = el.selectionEnd;
+  el.value = el.value.substring(0,s) + frac + el.value.substring(e);
+  el.focus(); el.selectionStart = el.selectionEnd = s + frac.length;
+}
+
+// ── COLLECT ──
+function collectItems() {
+  const items = [];
+  document.querySelectorAll('.item-block').forEach(block => {
+    const id = block.id.replace('item-','');
+    const prod = document.getElementById('prod-'+id)?.value;
+    if (!prod) return;
+    const isPVC = prod === 'PVC Door';
+    const dir = isPVC ? (document.getElementById('dir-'+id)?.value || '') : '';
+    const measurements = [];
+    document.getElementById('meas-rows-'+id)?.querySelectorAll('.meas-row').forEach(row => {
+      const rid = row.id.replace('mrow-','');
+      const w = document.getElementById('mW-'+rid)?.value.trim() || '';
+      const h = document.getElementById('mH-'+rid)?.value.trim() || '';
+      const m = document.getElementById('mM-'+rid)?.value.trim() || '';
+      if (w || h) measurements.push(isPVC ? {w,m,h} : {w,h});
+    });
+    if (measurements.length) items.push({product:prod, direction:dir, measurements});
+  });
+  return items;
+}
+
+// ── VALIDATE ──
+function validate() {
+  let ok = true;
+  const worker = document.getElementById('worker');
+  const location = document.getElementById('location');
+  document.getElementById('err-worker').style.display = 'none';
+  document.getElementById('err-location').style.display = 'none';
+  worker.classList.remove('field-error'); location.classList.remove('field-error');
+  if (!worker.value) { document.getElementById('err-worker').style.display='block'; worker.classList.add('field-error'); ok=false; }
+  if (!location.value.trim()) { document.getElementById('err-location').style.display='block'; location.classList.add('field-error'); ok=false; }
+  return ok;
+}
+
+// ── SUBMIT ──
+async function submitForm() {
+  if (!validate()) { window.scrollTo({top:0,behavior:'smooth'}); return; }
+  const items = collectItems();
+  if (!items.length) { showToast('Add at least one product with measurements'); return; }
+
+  const gpsLink = (capturedLat && capturedLng)
+    ? `https://maps.google.com/?q=${capturedLat},${capturedLng}` : null;
+
+  const entry = {
+    id: Date.now(),
+    timestamp: new Date().toISOString(),
+    worker: document.getElementById('worker').value,
+    date: document.getElementById('date').value,
+    location: document.getElementById('location').value.trim(),
+    customer: document.getElementById('customer').value.trim() || '—',
+    phone: document.getElementById('phone').value.trim() || '—',
+    lat: capturedLat, lng: capturedLng,
+    gpsLink: gpsLink || '—',
+    items,
+    notes: document.getElementById('notes').value.trim()
+  };
+
+  const existing = JSON.parse(localStorage.getItem('si_measurements') || '[]');
+  existing.unshift(entry);
+  localStorage.setItem('si_measurements', JSON.stringify(existing));
+
+  const url = document.getElementById('sheets-url').value.trim();
+  let sheetsMsg = '';
+  if (url) {
+    try {
+      showToast('Syncing to Google Sheets...');
+      await fetch(url, {
+        method:'POST', mode:'no-cors',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({rows: buildRows(entry)})
+      });
+      sheetsMsg = ' · Sent to Sheets ✓';
+    } catch(e) { sheetsMsg = ' · Sheets sync failed (saved locally)'; }
+  }
+
+  const total = items.reduce((s,i) => s+i.measurements.length, 0);
+  document.getElementById('success-detail').textContent =
+    `${items.length} product(s), ${total} measurement(s) — ${entry.location} · ${entry.worker}${sheetsMsg}`;
+  document.getElementById('wa-summary').textContent = buildWASummary(entry);
+  document.getElementById('form-section').style.display = 'none';
+  document.getElementById('success-screen').style.display = 'block';
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+// ── WHATSAPP SUMMARY ──
+function buildWASummary(e) {
+  const d = new Date(e.timestamp);
+  const timeStr = d.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
+  const lines = [];
+  lines.push('📐 *Smart Interiors — Site Measurement*');
+  lines.push('━━━━━━━━━━━━━━━━━━━━━');
+  lines.push(`📅 Date: ${e.date}   🕐 Time: ${timeStr}`);
+  lines.push(`👤 Team Member: ${e.worker}`);
+  lines.push(`📍 Location: ${e.location}`);
+  if (e.gpsLink && e.gpsLink !== '—') lines.push(`🗺 Directions: ${e.gpsLink}`);
+  if (e.customer !== '—') lines.push(`🏠 Customer: ${e.customer}`);
+  if (e.phone !== '—') lines.push(`📞 Phone: ${e.phone}`);
+  lines.push('━━━━━━━━━━━━━━━━━━━━━');
+
+  e.items.forEach((item) => {
+    const dirStr = item.direction ? ` (${item.direction})` : '';
+    lines.push(`\n🪟 *${item.product}${dirStr}*`);
+    item.measurements.forEach((m, mi) => {
+      const measStr = item.product === 'PVC Door'
+        ? `${m.w} × ${m.m} × ${m.h}`
+        : `${m.w} × ${m.h}`;
+      lines.push(`  ${mi+1}. ${measStr}`);
+    });
+  });
+
+  if (e.notes) {
+    lines.push('\n━━━━━━━━━━━━━━━━━━━━━');
+    lines.push(`📝 Notes: ${e.notes}`);
+  }
+  lines.push('\n━━━━━━━━━━━━━━━━━━━━━');
+  return lines.join('\n');
+}
+
+function copySummary() {
+  const text = document.getElementById('wa-summary').textContent;
+  const confirm = document.getElementById('copy-confirm');
+  const fallback = () => {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.cssText = 'position:fixed;opacity:0;';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); } catch(e) {}
+    document.body.removeChild(ta);
+    confirm.style.display = 'block';
+    setTimeout(() => { confirm.style.display='none'; }, 3000);
+  };
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).then(() => {
+      confirm.style.display = 'block';
+      setTimeout(() => { confirm.style.display='none'; }, 3000);
+    }).catch(fallback);
+  } else { fallback(); }
+}
+
+// ── SHEET ROWS ──
+function buildRows(entry) {
+  const rows = [];
+  const d = new Date(entry.timestamp);
+  const time = d.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
+  entry.items.forEach((item, ii) => {
+    item.measurements.forEach((m, mi) => {
+      const meas = item.product==='PVC Door' ? `${m.w} x ${m.m} x ${m.h}` : `${m.w} x ${m.h}`;
+      rows.push({
+        Date: entry.date, Time: time,
+        TeamMember: entry.worker, Location: entry.location,
+        Customer: entry.customer, Phone: entry.phone,
+        GPSLink: entry.gpsLink,
+        Product: item.product, Direction: item.direction || '—',
+        OpeningNo: ii+1, MeasNo: mi+1,
+        Width: m.w, Middle: item.product==='PVC Door' ? m.m : '—', Height: m.h,
+        Measurement: meas,
+        Notes: mi===0 && ii===0 ? entry.notes : ''
+      });
+    });
+  });
+  return rows;
+}
+
+// ── RESET ──
+function resetForm() {
+  document.getElementById('form-section').style.display = 'block';
+  document.getElementById('success-screen').style.display = 'none';
+  ['location','customer','phone','notes'].forEach(id => {
+    const el = document.getElementById(id); if(el) el.value = '';
+  });
+  document.getElementById('worker').value = '';
+  document.getElementById('date').value = new Date().toISOString().split('T')[0];
+  capturedLat = null; capturedLng = null;
+  document.getElementById('gps-status').className = 'gps-status';
+  document.getElementById('gps-status').textContent = 'Not captured yet';
+  document.getElementById('gps-info-box').style.display = 'none';
+  document.getElementById('items-list').innerHTML = '';
+  itemCount = 0; addItem();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+// ── DATA PANEL ──
+function toggleData() {
+  const p = document.getElementById('data-panel');
+  p.style.display = p.style.display==='block' ? 'none' : 'block';
+  if (p.style.display==='block') renderEntries();
+}
+
+function renderEntries() {
+  const entries = JSON.parse(localStorage.getItem('si_measurements') || '[]');
+  const list = document.getElementById('entries-list');
+  if (!entries.length) { list.innerHTML='<div class="no-entries">No entries yet.</div>'; return; }
+  list.innerHTML = entries.map(e => {
+    const d = new Date(e.timestamp);
+    const ds = d.toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'});
+    const ts = d.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
+    const gpsHtml = e.gpsLink && e.gpsLink!=='—'
+      ? `<br><a class="ec-map-link" href="${e.gpsLink}" target="_blank">🗺 Open Directions</a>` : '';
+    const itemsHtml = (e.items||[]).map(item => {
+      const chips = item.measurements.map((m,i) => {
+        const s = item.product==='PVC Door'
+          ? `${i+1}. ${m.w} × ${m.m} × ${m.h}`
+          : `${i+1}. ${m.w} × ${m.h}`;
+        return `<span class="meas-chip">${s}</span>`;
+      }).join('');
+      const dirChip = item.direction ? `<span class="dir-chip">${item.direction}</span>` : '';
+      return `<div class="ec-product-group">
+        <div class="ec-product-name">${item.product} ${dirChip}</div>
+        <div class="ec-chips">${chips}</div>
+      </div>`;
+    }).join('');
+    return `<div class="entry-card">
+      <div class="ec-header">
+        <span class="ec-worker">👤 ${e.worker}</span>
+        <span class="ec-date">${ds} ${ts}</span>
+      </div>
+      <div class="ec-meta">📍 ${e.location} · ${e.customer}${e.phone&&e.phone!=='—'?' · 📞 '+e.phone:''}${gpsHtml}</div>
+      ${itemsHtml}
+      ${e.notes ? `<div class="ec-notes">📝 ${e.notes}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+// ── CSV ──
+function exportCSV() {
+  const entries = JSON.parse(localStorage.getItem('si_measurements') || '[]');
+  if (!entries.length) { showToast('No entries to export'); return; }
+  const headers = ['Date','Time','TeamMember','Location','Customer','Phone','GPSLink','Product','Direction','OpeningNo','MeasNo','Width','Middle','Height','Measurement','Notes'];
+  const csv = [headers.join(','),
+    ...entries.flatMap(e => buildRows(e).map(r =>
+      headers.map(h => `"${(r[h]||'').toString().replace(/"/g,'""')}"`).join(',')
+    ))
+  ].join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download = `SmartInteriors_${new Date().toISOString().split('T')[0]}.csv`;
+  a.click();
+  showToast('CSV downloaded!');
+}
+
+// ── TOAST ──
+function showToast(msg) {
+  const t = document.createElement('div');
+  t.textContent = msg;
+  t.style.cssText = `position:fixed;bottom:80px;left:50%;transform:translateX(-50%);
+    background:#1A1A2E;color:white;padding:9px 20px;border-radius:20px;
+    font-size:0.8rem;z-index:9999;white-space:nowrap;transition:opacity 0.5s;`;
+  document.body.appendChild(t);
+  setTimeout(() => { t.style.opacity='0'; setTimeout(() => t.remove(),500); }, 2200);
+}
+</script>
+</body>
+</html>
