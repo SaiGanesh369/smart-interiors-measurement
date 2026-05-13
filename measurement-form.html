@@ -385,6 +385,8 @@ const WHATSAPP_URL = 'https://chat.whatsapp.com/KPQXS3b220vENMV9MCZQro';
     </div>
 
     <button class="btn-submit" onclick="submitForm()">✅ Save & Sync to Sheets</button>
+    <button onclick="testSync()" style="width:100%;padding:12px;margin-top:8px;background:#3B82F6;color:white;border:none;border-radius:12px;font-size:0.9rem;font-weight:700;cursor:pointer;">🧪 Test Sheets Sync</button>
+    <div id="test-result" style="margin-top:8px;padding:10px;border-radius:8px;font-size:0.8rem;display:none;"></div>
 
     <div class="data-toggle">
       <button onclick="toggleData()">📋 View Saved Entries</button>
@@ -952,6 +954,41 @@ function renderEntries() {
       ${e.notes ? `<div class="ec-notes">📝 ${e.notes}</div>` : ''}
     </div>`;
   }).join('');
+}
+
+// ── TEST SYNC ──
+async function testSync() {
+  const resultDiv = document.getElementById('test-result');
+  resultDiv.style.display = 'block';
+  resultDiv.style.background = '#FFF7ED';
+  resultDiv.style.border = '1px solid #FED7AA';
+  resultDiv.textContent = '⏳ Testing connection...';
+
+  try {
+    const testRows = [{
+      Date: '2024-05-13', Time: '12:00', TeamMember: 'TEST',
+      Location: 'Mobile Test', Customer: 'Test', Phone: '123',
+      GPSLink: '-', Product: 'UPVC Window', Direction: '-',
+      OpeningNo: 1, MeasNo: 1, Width: '47', Middle: '-',
+      Height: '43', Measurement: 'W:47 x H:43',
+      Notes: 'mobile test', Photos: ''
+    }];
+
+    const response = await fetch('/.netlify/functions/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({rows: testRows})
+    });
+
+    const text = await response.text();
+    resultDiv.style.background = '#E7F8EE';
+    resultDiv.style.border = '1px solid #86EFAC';
+    resultDiv.textContent = '✅ Success! Response: ' + text;
+  } catch(err) {
+    resultDiv.style.background = '#FEE2E2';
+    resultDiv.style.border = '1px solid #FCA5A5';
+    resultDiv.textContent = '❌ Error: ' + err.toString();
+  }
 }
 
 // ── TOAST ──
