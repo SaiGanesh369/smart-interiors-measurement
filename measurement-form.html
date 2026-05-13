@@ -7,7 +7,7 @@
 <script>
 // ════════════════════════════════════════
 // CONFIG — UPDATE THESE TWO LINES ONLY
-const SHEETS_URL   = 'https://script.google.com/macros/s/AKfycby5338zmo3YatyvVVjs-Ozd4Sr8BvChpm7Xklc_mWjHzpVUMbVUUjdF69Z6hqCeQWyArA/exec';
+const SHEETS_URL   = 'https://script.google.com/macros/s/AKfycbwCTGOwV9FE6f-YcpJ0WS6vvMC82bOZx9-0yYI5pMe1uU7mAdUXy2tmQYskaWoyfet2qA/exec';
 const WHATSAPP_URL = 'https://chat.whatsapp.com/KPQXS3b220vENMV9MCZQro';
 // ════════════════════════════════════════
 </script>
@@ -405,9 +405,9 @@ const WHATSAPP_URL = 'https://chat.whatsapp.com/KPQXS3b220vENMV9MCZQro';
       <div class="wa-title">💬 WhatsApp Summary</div>
       <div class="wa-summary" id="wa-summary"></div>
       <div class="wa-buttons">
-        <a id="btn-wa-send" class="btn-wa-send" href="#" target="_blank">
+        <button class="btn-wa-send" onclick="openWhatsApp()">
           <span>📲</span> Open Group &amp; Paste
-        </a>
+        </button>
         <button class="btn-copy" onclick="copySummary()">📋 Copy</button>
       </div>
       <div class="copy-confirm" id="copy-confirm">✓ Message copied! Tap "Open Group & Paste" → paste in group</div>
@@ -769,19 +769,8 @@ async function submitForm() {
   const summary = buildWASummary(entry);
   document.getElementById('wa-summary').textContent = summary;
 
-  // WhatsApp — store summary for copy, open group link directly
-  document.getElementById('btn-wa-send').href = WHATSAPP_URL;
-  // Auto-copy message to clipboard so they just paste when group opens
-  try {
-    await navigator.clipboard.writeText(summary);
-  } catch(e) {
-    // fallback clipboard copy
-    const ta = document.createElement('textarea');
-    ta.value = summary; ta.style.cssText = 'position:fixed;opacity:0;';
-    document.body.appendChild(ta); ta.select();
-    try { document.execCommand('copy'); } catch(e2) {}
-    document.body.removeChild(ta);
-  }
+  // Store summary for WhatsApp button
+  window._waSummary = summary;
 
   document.getElementById('form-section').style.display = 'none';
   document.getElementById('success-screen').style.display = 'block';
@@ -989,6 +978,39 @@ async function testSync() {
     resultDiv.style.border = '1px solid #FCA5A5';
     resultDiv.textContent = '❌ Error: ' + err.toString();
   }
+}
+
+// ── WHATSAPP OPEN ──
+function openWhatsApp() {
+  const summary = window._waSummary || document.getElementById('wa-summary').textContent;
+  
+  // Copy to clipboard first — must happen synchronously on user tap
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(summary).then(() => {
+      showToast('Message copied! Now paste in the group.');
+    }).catch(() => {
+      fallbackCopy(summary);
+    });
+  } else {
+    fallbackCopy(summary);
+  }
+
+  // Open WhatsApp group after short delay
+  setTimeout(() => {
+    window.open(WHATSAPP_URL, '_blank');
+  }, 300);
+}
+
+function fallbackCopy(text) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0;';
+  document.body.appendChild(ta);
+  ta.focus();
+  ta.select();
+  try { document.execCommand('copy'); } catch(e) {}
+  document.body.removeChild(ta);
+  showToast('Message copied! Now paste in the group.');
 }
 
 // ── TOAST ──
