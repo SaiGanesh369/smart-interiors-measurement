@@ -630,17 +630,48 @@ function captureGPS() {
 }
 
 // ── PHOTO HANDLING ──
-function handlePhotos(event) {
-  const files = Array.from(event.target.files);
-  files.forEach(file => {
+// ── COMPRESS IMAGE IN BROWSER BEFORE STORING ──
+// Resizes to max 1200px, JPEG quality 0.72 → reduces 3-4MB photos to ~200-400KB
+// Why: Apps Script has a ~10MB POST limit; base64 adds 33% overhead, so raw >7MB fails
+function compressImage(file, maxPx, quality) {
+  return new Promise((resolve) => {
     const reader = new FileReader();
     reader.onload = e => {
-      const idx = photoDataURLs.length;
-      photoDataURLs.push(e.target.result);
-      photoFileNames.push(file.name);
-      renderPhotoPreview(e.target.result, idx);
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        // Scale down only if larger than maxPx on longest side
+        if (width > maxPx || height > maxPx) {
+          if (width >= height) { height = Math.round(height * maxPx / width); width = maxPx; }
+          else { width = Math.round(width * maxPx / height); height = maxPx; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width; canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.src = e.target.result;
     };
     reader.readAsDataURL(file);
+  });
+}
+
+function handlePhotos(event) {
+  const files = Array.from(event.target.files);
+  const statusEl = document.getElementById('photo-upload-status');
+  files.forEach(async file => {
+    const idx = photoDataURLs.length;
+    photoDataURLs.push(null);       // reserve slot
+    photoFileNames.push(file.name);
+    statusEl.textContent = '🗜 Compressing photo...';
+    statusEl.className = 'photo-upload-status';
+    const compressed = await compressImage(file, 1200, 0.72);
+    photoDataURLs[idx] = compressed;
+    // Show compressed size in KB for transparency
+    const kb = Math.round((compressed.length * 0.75) / 1024);
+    statusEl.textContent = `✓ Photo ready (${kb} KB after compression)`;
+    statusEl.className = 'photo-upload-status ok';
+    renderPhotoPreview(compressed, idx);
   });
   event.target.value = '';
 }
@@ -1190,98 +1221,47 @@ async function loadEntriesFromSheets() {
 }
 
 function renderSheetEntries(rows) {
-  // Rows from Sheets are flat — group by EntryId or Date+TeamMember+Location
-  // Each row: { Date, Time, TeamMember, Location, Customer, Phone, GPSLink,
-  //             Product, Direction, OpeningNo, MeasNo, Width, Middle, Height,
-  //             Measurement, Notes, Photos }
   const list = document.getElementById('entries-list');
-
-  // Group rows into entries by Date+Time+TeamMember+Location
   const grouped = {};
   rows.forEach(row => {
     const key = `${row.Date}_${row.Time}_${row.TeamMember}_${row.Location}`;
-    if (!grouped[key]) {
-      grouped[key] = { ...row, items: {} };
-    }
+    if (!grouped[key]) grouped[key] = { ...row, items: {} };
     const itemKey = `${row.OpeningNo}_${row.Product}`;
-    if (!grouped[key].items[itemKey]) {
+    if (!grouped[key].items[itemKey])
       grouped[key].items[itemKey] = { product: row.Product, direction: row.Direction, measurements: [] };
-    }
-    grouped[key].items[itemKey].measurements.push({
-      meas: row.Measurement, w: row.Width, m: row.Middle, h: row.Height
-    });
+    grouped[key].items[itemKey].measurements.push({ meas: row.Measurement });
   });
 
   const entries = Object.values(grouped);
+  window._sheetEntries = entries;
   if (!entries.length) { list.innerHTML = '<div class="no-entries">No entries found.</div>'; return; }
 
   list.innerHTML = entries.map((e, idx) => {
-    const gpsHtml = e.GPSLink && e.GPSLink !== '—'
-      ? `<br><a class="ec-map-link" href="${e.GPSLink}" target="_blank">🗺 Open Directions</a>` : '';
-
-    const itemsHtml = Object.values(e.items).map(item => {
-      const chips = item.measurements.map((m, i) =>
-        `<span class="meas-chip">${i+1}. ${m.meas}</span>`
-      ).join('');
-      const dirChip = item.direction && item.direction !== '—'
-        ? `<span class="dir-chip">${item.direction}</span>` : '';
-      return `<div class="ec-product-group">
-        <div class="ec-product-name">${item.product} ${dirChip}</div>
-        <div class="ec-chips">${chips}</div>
-      </div>`;
-    }).join('');
-
-    // Parse photo links from Photos cell
     const photoLinks = e.Photos ? e.Photos.split('\n').filter(Boolean) : [];
-    const photosBtnHtml = photoLinks.length
-      ? `<button class="ec-btn ec-btn-photo" onclick="togglePhotos(${idx})">📷 Photos (${photoLinks.length})</button>`
-      : '';
-    const photosHtml = photoLinks.length
-      ? `<div class="ec-photos-panel" id="ec-photos-${idx}">
-          ${photoLinks.map((link, li) =>
-            `<a class="ec-photo-link" href="${link}" target="_blank">🖼 View Photo ${li+1}</a>`
-          ).join('')}
-        </div>` : '';
-
-    // Build WA summary for this entry
-    const waSummaryStr = buildWASummaryFromRow(e);
-
-    return `<div class="entry-card">
+    const photoIndicator = photoLinks.length
+      ? `<span style="color:var(--blue);font-size:0.72rem;">📷 ${photoLinks.length} photo(s)</span>` : '';
+    return `<div class="entry-card" onclick="openEntryModal(${idx})">
       <div class="ec-header">
         <span class="ec-worker">👤 ${e.TeamMember}</span>
-        <span class="ec-date">${e.Date} ${e.Time}</span>
+        <span class="ec-date">${e.Date} · ${e.Time}</span>
       </div>
-      <div class="ec-meta">📍 ${e.Location} · ${e.Customer || '—'}${e.Phone && e.Phone!=='—' ? ' · 📞 '+e.Phone : ''}${gpsHtml}</div>
-      ${itemsHtml}
-      ${e.Notes ? `<div class="ec-notes">📝 ${e.Notes}</div>` : ''}
-      ${photosHtml}
-      <div class="ec-actions">
-        <button class="ec-btn ec-btn-wa" onclick="sendEntryToWA(${idx})">📲 Send to WhatsApp</button>
-        ${photosBtnHtml}
+      <div class="ec-meta">📍 ${e.Location} · ${e.Customer || '—'}${e.Phone && e.Phone !== '—' ? ' · 📞 ' + e.Phone : ''}</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:5px;">
+        <span style="font-size:0.72rem;color:var(--muted);">${Object.keys(e.items).length} product(s) · ${Object.values(e.items).reduce((s,i)=>s+i.measurements.length,0)} measurement(s)</span>
+        ${photoIndicator}
       </div>
+      <div class="ec-tap-hint">Tap to view details →</div>
     </div>`;
   }).join('');
-
-  // Store entries data for WA send
-  window._sheetEntries = entries;
 }
 
-function togglePhotos(idx) {
-  const panel = document.getElementById(`ec-photos-${idx}`);
-  if (panel) panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
-}
-
-function sendEntryToWA(idx) {
+function openEntryModal(idx) {
   const e = window._sheetEntries && window._sheetEntries[idx];
   if (!e) return;
-  const summary = buildWASummaryFromRow(e);
-  const waText = encodeURIComponent(summary);
-  window.open('https://api.whatsapp.com/send?text=' + waText, '_blank');
-}
 
-function buildWASummaryFromRow(e) {
+  // Build summary text
   const lines = [];
-  lines.push('📐 *Smart Interiors — Site Measurement*');
+  lines.push('📐 Smart Interiors — Site Measurement');
   lines.push('━━━━━━━━━━━━━━━━━━━━━');
   lines.push(`📅 Date: ${e.Date}   🕐 Time: ${e.Time}`);
   lines.push(`👤 Team Member: ${e.TeamMember}`);
@@ -1291,17 +1271,54 @@ function buildWASummaryFromRow(e) {
   if (e.Phone && e.Phone !== '—') lines.push(`📞 Phone: ${e.Phone}`);
   lines.push('━━━━━━━━━━━━━━━━━━━━━');
   Object.values(e.items || {}).forEach(item => {
-    lines.push(`\n🪟 *${item.product}*`);
+    const dirStr = item.direction && item.direction !== '—' ? ` (${item.direction})` : '';
+    lines.push(`\n🪟 ${item.product}${dirStr}`);
     item.measurements.forEach((m, mi) => lines.push(`  ${mi+1}. ${m.meas}`));
   });
-  if (e.Notes) { lines.push('\n📝 Notes: ' + e.Notes); }
-  const photoLinks = e.Photos ? e.Photos.split('\n').filter(Boolean) : [];
-  if (photoLinks.length) {
-    lines.push(`📷 Photos (${photoLinks.length}):`);
-    photoLinks.forEach((link, i) => lines.push(`  Photo ${i+1}: ${link}`));
-  }
+  if (e.Notes) lines.push(`\n📝 Notes: ${e.Notes}`);
   lines.push('\n━━━━━━━━━━━━━━━━━━━━━');
-  return lines.join('\n');
+
+  document.getElementById('modal-summary').textContent = lines.join('\n');
+  document.getElementById('modal-title').textContent = `${e.TeamMember} · ${e.Date}`;
+
+  // Photos
+  const photoLinks = e.Photos ? e.Photos.split('\n').filter(Boolean) : [];
+  const photosSection = document.getElementById('modal-photos');
+  const photoLinksEl = document.getElementById('modal-photo-links');
+  if (photoLinks.length) {
+    photoLinksEl.innerHTML = photoLinks.map((link, i) =>
+      `<a class="modal-photo-link" href="${link}" target="_blank">🖼 View Photo ${i + 1}</a>`
+    ).join('');
+    photosSection.style.display = 'block';
+  } else {
+    photosSection.style.display = 'none';
+  }
+
+  document.getElementById('entry-modal').classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeModal() {
+  document.getElementById('entry-modal').classList.remove('active');
+  document.body.style.overflow = '';
+}
+
+function closeEntryModal(event) {
+  // Close only if clicking the backdrop (not the sheet itself)
+  if (event.target === document.getElementById('entry-modal')) closeModal();
+}
+
+function copyModalSummary() {
+  const text = document.getElementById('modal-summary').textContent;
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).then(() => showToast('Summary copied!')).catch(() => {});
+  } else {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.cssText = 'position:fixed;opacity:0;';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); showToast('Summary copied!'); } catch(e) {}
+    document.body.removeChild(ta);
+  }
 }
 
 // Fallback: render from localStorage if Sheets fetch fails
@@ -1309,40 +1326,56 @@ function renderLocalEntries() {
   const entries = JSON.parse(localStorage.getItem('si_measurements') || '[]');
   const list = document.getElementById('entries-list');
   if (!entries.length) { list.innerHTML='<div class="no-entries">No entries yet.</div>'; return; }
-  list.innerHTML = entries.slice(0,20).map(e => {
+  // Convert local format to same shape as sheet entries for openEntryModal reuse
+  const converted = entries.slice(0,20).map(e => {
     const d = new Date(e.timestamp);
     const ds = d.toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'});
     const ts = d.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
-    const gpsHtml = e.gpsLink && e.gpsLink!=='—'
-      ? `<br><a class="ec-map-link" href="${e.gpsLink}" target="_blank">🗺 Open Directions</a>` : '';
-    const itemsHtml = (e.items||[]).map(item => {
-      const chips = item.measurements.map((m,i) => {
-        const isPVC = item.product === 'PVC Door';
-        const midStr = isPVC && m.m && m.m !== '—' ? ` × Mid:${m.m}` : '';
-        const s = isPVC
-          ? `${i+1}. W:${m.w}${midStr} × H:${m.h}`
-          : `${i+1}. W:${m.w} × H:${m.h}`;
-        return `<span class="meas-chip">${s}</span>`;
-      }).join('');
-      const dirChip = item.direction ? `<span class="dir-chip">${item.direction}</span>` : '';
-      return `<div class="ec-product-group">
-        <div class="ec-product-name">${item.product} ${dirChip}</div>
-        <div class="ec-chips">${chips}</div>
-      </div>`;
-    }).join('');
-    return `<div class="entry-card">
+    const items = {};
+    (e.items||[]).forEach((item, ii) => {
+      items[ii] = {
+        product: item.product,
+        direction: item.direction || '—',
+        measurements: item.measurements.map(m => {
+          const isPVC = item.product === 'PVC Door';
+          const meas = isPVC
+            ? (m.bottom && m.bottom !== '—' ? `H:${m.h} x Top:${m.top} x Bottom:${m.bottom}` : `H:${m.h} x Top:${m.top}`)
+            : `H:${m.h} x W:${m.w}`;
+          return { meas };
+        })
+      };
+    });
+    return {
+      Date: ds, Time: ts,
+      TeamMember: e.worker, Location: e.location,
+      Customer: e.customer, Phone: e.phone,
+      GPSLink: e.gpsLink || '—', Notes: e.notes,
+      Photos: (e.photoLinks && e.photoLinks.length) ? e.photoLinks.join('\n') : '',
+      items
+    };
+  });
+  window._sheetEntries = converted;
+  list.innerHTML = converted.map((e, idx) => {
+    const photoLinks = e.Photos ? e.Photos.split('\n').filter(Boolean) : [];
+    const photoIndicator = photoLinks.length
+      ? `<span style="color:var(--blue);font-size:0.72rem;">📷 ${photoLinks.length} photo(s)</span>` : '';
+    return `<div class="entry-card" onclick="openEntryModal(${idx})">
       <div class="ec-header">
-        <span class="ec-worker">👤 ${e.worker}</span>
-        <span class="ec-date">${ds} ${ts}</span>
+        <span class="ec-worker">👤 ${e.TeamMember}</span>
+        <span class="ec-date">${e.Date} · ${e.Time}</span>
       </div>
-      <div class="ec-meta">📍 ${e.location} · ${e.customer}${e.phone&&e.phone!=='—'?' · 📞 '+e.phone:''}${gpsHtml}</div>
-      ${itemsHtml}
-      ${e.notes ? `<div class="ec-notes">📝 ${e.notes}</div>` : ''}
+      <div class="ec-meta">📍 ${e.Location} · ${e.Customer || '—'}${e.Phone && e.Phone !== '—' ? ' · 📞 ' + e.Phone : ''}</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:5px;">
+        <span style="font-size:0.72rem;color:var(--muted);">${Object.keys(e.items).length} product(s)</span>
+        ${photoIndicator}
+      </div>
+      <div class="ec-tap-hint">Tap to view details →</div>
     </div>`;
   }).join('');
 }
 
-// ── TEST SYNC ──}
+
+
 
 // ── WHATSAPP OPEN ──
 function openWhatsApp() {
