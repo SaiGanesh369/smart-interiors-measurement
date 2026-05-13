@@ -402,11 +402,11 @@ const WHATSAPP_URL = 'https://chat.whatsapp.com/KPQXS3b220vENMV9MCZQro';
       <p class="sub" id="success-detail"></p>
     </div>
     <div class="wa-box">
-      <div class="wa-title">💬 WhatsApp Summary — Message copied! Just paste in group ✓</div>
+      <div class="wa-title">💬 WhatsApp Summary</div>
       <div class="wa-summary" id="wa-summary"></div>
       <div class="wa-buttons">
         <button class="btn-wa-send" onclick="openWhatsApp()">
-          <span>📲</span> Open Group &amp; Paste
+          <span>📲</span> Send to WhatsApp
         </button>
         <button class="btn-copy" onclick="copySummary()">📋 Copy</button>
       </div>
@@ -997,34 +997,9 @@ async function testSync() {
 // ── WHATSAPP OPEN ──
 function openWhatsApp() {
   const summary = window._waSummary || document.getElementById('wa-summary').textContent;
-  
-  // Copy to clipboard first — must happen synchronously on user tap
-  if (navigator.clipboard && window.isSecureContext) {
-    navigator.clipboard.writeText(summary).then(() => {
-      showToast('Message copied! Now paste in the group.');
-    }).catch(() => {
-      fallbackCopy(summary);
-    });
-  } else {
-    fallbackCopy(summary);
-  }
-
-  // Open WhatsApp group after short delay
-  setTimeout(() => {
-    window.open(WHATSAPP_URL, '_blank');
-  }, 300);
-}
-
-function fallbackCopy(text) {
-  const ta = document.createElement('textarea');
-  ta.value = text;
-  ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0;';
-  document.body.appendChild(ta);
-  ta.focus();
-  ta.select();
-  try { document.execCommand('copy'); } catch(e) {}
-  document.body.removeChild(ta);
-  showToast('Message copied! Now paste in the group.');
+  // Open WhatsApp with message pre-filled — user selects group and taps Send
+  const waText = encodeURIComponent(summary);
+  window.open('https://api.whatsapp.com/send?text=' + waText, '_blank');
 }
 
 // ── TOAST ──
