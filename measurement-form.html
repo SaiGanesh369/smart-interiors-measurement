@@ -705,35 +705,39 @@ async function uploadPhotosToDrive(entryId) {
   if (!validPhotos.length) return [];
 
   const statusEl = document.getElementById('photo-upload-status');
-  statusEl.textContent = `📤 Uploading ${validPhotos.length} photo(s) to Drive...`;
   statusEl.className = 'photo-upload-status';
+  const links = [];
 
-  try {
-    const response = await fetch('/.netlify/functions/save', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+  // Upload one photo at a time directly to Apps Script
+  // Reason: avoids payload size issues; each call is small and independent
+  for (let i = 0; i < validPhotos.length; i++) {
+    statusEl.textContent = `📤 Uploading photo ${i+1} of ${validPhotos.length}...`;
+    try {
+      const result = await callAppsScript({
         action: 'uploadPhotos',
         entryId: entryId,
         folderId: DRIVE_FOLDER_ID,
-        photos: validPhotos
-      })
-    });
-    const result = await response.json();
-    if (result.links && result.links.length) {
-      statusEl.textContent = `✓ ${result.links.length} photo(s) uploaded to Drive`;
-      statusEl.className = 'photo-upload-status ok';
-      return result.links;
+        photos: [validPhotos[i]]
+      });
+      console.log('Photo upload result:', result);
+      if (result.links && result.links[0]) {
+        links.push(result.links[0]);
+      } else if (result.error) {
+        console.error('Drive error:', result.error);
+      }
+    } catch(e) {
+      console.error('Photo upload error:', e);
     }
-    statusEl.textContent = '⚠️ Photos saved locally only (Drive upload failed)';
-    statusEl.className = 'photo-upload-status err';
-    return [];
-  } catch(e) {
-    console.error('Photo upload error:', e);
-    statusEl.textContent = '⚠️ Photos saved locally only (Drive upload failed)';
-    statusEl.className = 'photo-upload-status err';
-    return [];
   }
+
+  if (links.length) {
+    statusEl.textContent = `✓ ${links.length} photo(s) uploaded to Drive`;
+    statusEl.className = 'photo-upload-status ok';
+  } else {
+    statusEl.textContent = '⚠️ Photo upload failed — check console';
+    statusEl.className = 'photo-upload-status err';
+  }
+  return links;
 }
 
 // ── MEASUREMENT INPUT — ALLOW DIGITS, SPACE, SLASH ONLY ──
@@ -1018,7 +1022,7 @@ async function submitForm() {
   let sheetsMsg = '';
   if (SHEETS_URL) {
     try {
-      await sendToSheets(SHEETS_URL, buildRows(entry));
+      await sendToSheets(null, buildRows(entry));
       sheetsMsg = ' · Sent to Sheets ✓';
     } catch(e) {
       console.error('Sheets error:', e);
@@ -1116,15 +1120,24 @@ function copySummary() {
   } else { fallback(); }
 }
 
-// ── SEND TO SHEETS (via Netlify) ──
+// ── CALL APPS SCRIPT DIRECTLY — no proxy needed with GitHub Pages ──
+// Apps Script handles CORS via ContentService JSON response
+async function callAppsScript(payload) {
+  const response = await fetch(SHEETS_URL, {
+    method: 'POST',
+    // Apps Script requires text/plain for direct browser POST (no CORS preflight)
+    // Using application/json triggers a preflight that Apps Script can't handle
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(payload)
+  });
+  const text = await response.text();
+  try { return JSON.parse(text); }
+  catch { return { raw: text }; }
+}
+
 async function sendToSheets(url, rows) {
   try {
-    const response = await fetch('/.netlify/functions/save', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({action: 'saveRows', rows: rows})
-    });
-    const result = await response.json();
+    const result = await callAppsScript({ action: 'saveRows', rows: rows });
     console.log('Sheets result:', result);
   } catch(err) {
     console.error('sendToSheets error:', err);
@@ -1201,14 +1214,9 @@ function toggleData() {
 
 async function loadEntriesFromSheets() {
   const list = document.getElementById('entries-list');
-  list.innerHTML = '<div class="loading-entries">⏳ Loading last 20 entries from Sheets...</div>';
+  list.innerHTML = '<div class="loading-entries">⏳ Loading last 20 entries...</div>';
   try {
-    const response = await fetch('/.netlify/functions/save', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'getRecent', limit: 20 })
-    });
-    const result = await response.json();
+    const result = await callAppsScript({ action: 'getRecent', limit: 20 });
     if (result.rows && result.rows.length) {
       renderSheetEntries(result.rows);
     } else {
