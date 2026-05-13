@@ -402,7 +402,7 @@ const WHATSAPP_URL = 'https://chat.whatsapp.com/KPQXS3b220vENMV9MCZQro';
       <p class="sub" id="success-detail"></p>
     </div>
     <div class="wa-box">
-      <div class="wa-title">💬 WhatsApp Summary</div>
+      <div class="wa-title">💬 WhatsApp Summary — Message copied! Just paste in group ✓</div>
       <div class="wa-summary" id="wa-summary"></div>
       <div class="wa-buttons">
         <button class="btn-wa-send" onclick="openWhatsApp()">
@@ -771,6 +771,20 @@ async function submitForm() {
 
   // Store summary for WhatsApp button
   window._waSummary = summary;
+  // Copy immediately while still inside save button tap gesture
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(summary).catch(() => {});
+    } else {
+      const ta = document.createElement('textarea');
+      ta.value = summary;
+      ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0;';
+      document.body.appendChild(ta);
+      ta.focus(); ta.select();
+      try { document.execCommand('copy'); } catch(e) {}
+      document.body.removeChild(ta);
+    }
+  } catch(e) {}
 
   document.getElementById('form-section').style.display = 'none';
   document.getElementById('success-screen').style.display = 'block';
