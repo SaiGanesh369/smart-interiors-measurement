@@ -688,11 +688,9 @@ async function submitForm() {
   if (url) {
     try {
       showToast('Syncing to Google Sheets...');
-      await fetch(url, {
-        method:'POST', mode:'no-cors',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({rows: buildRows(entry)})
-      });
+      // Send as GET with encoded JSON param — works reliably with Apps Script no-cors
+      const payload = encodeURIComponent(JSON.stringify({rows: buildRows(entry)}));
+      await fetch(`${url}?data=${payload}`, { method:'GET', mode:'no-cors' });
       sheetsMsg = ' · Sent to Sheets ✓';
     } catch(e) { sheetsMsg = ' · Sheets sync failed (saved locally)'; }
   }
