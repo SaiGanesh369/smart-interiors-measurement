@@ -1,12 +1,13 @@
+const https = require('https');
+const url = require('url');
+
 exports.handler = async function(event, context) {
-  // Allow all origins
   const headers = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type',
     'Access-Control-Allow-Methods': 'POST, OPTIONS'
   };
 
-  // Handle preflight
   if (event.httpMethod === 'OPTIONS') {
     return { statusCode: 200, headers, body: '' };
   }
@@ -27,17 +28,35 @@ exports.handler = async function(event, context) {
     }
 
     const SHEETS_URL = process.env.SHEETS_URL;
-
-    // Forward to Google Apps Script using node-fetch
-    const fetch = require('node-fetch');
     const encoded = encodeURIComponent(JSON.stringify({rows}));
-    const response = await fetch(`${SHEETS_URL}?data=${encoded}`, {
-      method: 'GET',
-      redirect: 'follow'
-    });
+    const fullUrl = `${SHEETS_URL}?data=${encoded}`;
 
-    const text = await response.text();
-    console.log('Sheets response:', text);
+    // Use built-in https module — no external dependencies needed
+    await new Promise((resolve) => {
+      const parsedUrl = url.parse(fullUrl);
+
+      const req = https.request({
+        hostname: parsedUrl.hostname,
+        path: parsedUrl.path,
+        method: 'GET',
+        headers: { 'User-Agent': 'SmartInteriors/1.0' }
+      }, (res) => {
+        let data = '';
+        res.on('data', chunk => { data += chunk; });
+        res.on('end', () => {
+          console.log('Sheets status:', res.statusCode);
+          console.log('Sheets response:', data.substring(0, 200));
+          resolve();
+        });
+      });
+
+      req.on('error', (err) => {
+        console.error('HTTPS error:', err.toString());
+        resolve();
+      });
+
+      req.end();
+    });
 
     return {
       statusCode: 200, headers,
@@ -45,7 +64,7 @@ exports.handler = async function(event, context) {
     };
 
   } catch(err) {
-    console.error('Save error:', err);
+    console.error('Handler error:', err);
     return {
       statusCode: 500, headers,
       body: JSON.stringify({status: 'error', message: err.toString()})
